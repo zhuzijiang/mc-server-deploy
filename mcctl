@@ -52,9 +52,12 @@ view_dist(){ local v; v="$(read_prop view-distance)"; printf '%s' "${v:-?}"; }
 
 # 从 start.sh / run.sh 里推断服务端类型与版本
 server_kind(){
-  local f
-  for f in .mcctl.info server.jar; do :; done
-  if [ -f .mcctl.info ]; then cat .mcctl.info; return; fi
+  # 由 deploy.sh 写入，形如 "paper 1.21.11"
+  if [ -f .mcctl.info ]; then
+    awk '{printf "%s %s", toupper(substr($1,1,1)) substr($1,2), $2}' .mcctl.info
+    return
+  fi
+  [ -f server.jar ] && { printf 'Minecraft'; return; }
   printf 'Minecraft'
 }
 
@@ -296,6 +299,8 @@ do_status(){
 
   box_top "Minecraft 服务器"
   box_row "名称" "$name"
+  local kind; kind="$(server_kind 2>/dev/null)"
+  [ -n "$kind" ] && [ "$kind" != "Minecraft" ] && box_row "服务端" "$kind"
   box_row "目录" "$DIR"
 
   if [ -n "$pid" ]; then
