@@ -93,8 +93,59 @@ curl -fsSL https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main/deploy.s
 | `--no-java` | 跳过 Java 检查与安装 | — |
 | `--dry-run` | 只解析地址并打印计划 | — |
 | `--ask` | 强制进入交互式向导 | — |
+| `--plugins <列表>` | 安装插件（逗号分隔），仅 Paper 支持 | — |
+| `--mods <列表>` | 安装模组（逗号分隔），Fabric / NeoForge / Forge | — |
+| `--pick` | 交互式挑选插件与模组 | — |
+| `--list-plugins` / `--list-mods` | 列出全部候选后退出 | — |
 | `-l, --list` | 列出全部可用「版本 × 服务端」组合 | — |
 | `-h, --help` | 显示帮助 | — |
+
+---
+
+## 插件与模组
+
+内置 **22 个常用插件** 和 **24 个常用模组**目录，元数据取自 Modrinth（按下载量筛选），
+安装时按你选的**加载器 + MC 版本**实时匹配可用文件，不写死地址。
+
+```bash
+# 装插件（仅 Paper 支持）
+curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/deploy.sh | bash -s -- --loader paper --version 1.21.11 --mem 2 --plugins essentialsx,luckperms,coreprotect
+
+# 装模组（Fabric / NeoForge / Forge）
+curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/deploy.sh | bash -s -- --loader fabric --version 1.21.1 --mem 4 --mods lithium,ferrite-core,jei
+
+# 交互式挑选：列出候选让你输编号
+curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/deploy.sh | bash -s -- --pick
+
+# 先看看有哪些可选
+curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/deploy.sh | bash -s -- --list-plugins
+curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/deploy.sh | bash -s -- --list-mods
+```
+
+脚本会自动跳过**仅客户端**的内容（装在服务端没有作用），并把文件放进 `plugins/` 或 `mods/`。
+标记说明：**★** 需要客户端也装同样的模组；**⚠** 仅客户端，服务端装了没用。
+
+### 插件（22 个）
+
+| 分类 | 内容 |
+|---|---|
+| 基础管理 | `lmd`、`luckperms`、`tab-was-taken`、`essentialsx`、`placeholderapi` |
+| 世界与保护 | `worldedit`、`worldguard`、`multiverse-core`、`fastasyncworldedit`、`coreprotect` |
+| 性能与维护 | `spark`、`chunky` |
+| 兼容与联机 | `viaversion`、`viabackwards`、`skinsrestorer`、`geyser`、`floodgate` |
+| 玩法与社交 | `simple-voice-chat` ★、`packetevents`、`grimac`、`discordsrv`、`dynmap` |
+
+### 模组（24 个）
+
+| 分类 | 内容 |
+|---|---|
+| 性能优化 | `ferrite-core` ★、`lithium` ★、`modernfix` ★、`krypton` ★、`c2me-fabric`、`noisium`、`servercore` |
+| 前置库 | `fabric-api` ★、`cloth-config` ★、`fabric-language-kotlin` ★、`architectury-api` ★ |
+| 玩法内容 | `veinminer`、`create` ★、`waystones` ★、`farmers-delight` ★、`terralith`、`comforts` ★、`rightclickharvest` |
+| 信息显示 | `xaeros-minimap` ★、`appleskin` ★、`jei` ★、`jade` ★ |
+| 仅客户端 | `sodium` ⚠、`iris` ⚠ |
+
+> 插件只能在 Paper 上运行；模组需要 Fabric / NeoForge / Forge。选错时脚本会提示并跳过，不会静默失败。
 
 ---
 
