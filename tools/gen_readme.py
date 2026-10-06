@@ -35,8 +35,8 @@ PLUGIN_TABLE = cat_table(cat['plugins'])
 MOD_TABLE = cat_table(cat['mods'])
 N_PLUG = len(cat['plugins']); N_MOD = len(cat['mods'])
 vs = d['versions']
-LO = [("paper", "Paper"), ("vanilla", "原版"), ("fabric", "Fabric"),
-      ("neoforge", "NeoForge"), ("forge", "Forge")]
+LO = [("paper", "Paper"), ("folia", "Folia"), ("purpur", "Purpur"), ("vanilla", "原版"),
+      ("fabric", "Fabric"), ("neoforge", "NeoForge"), ("forge", "Forge")]
 
 total = sum(len(i['loaders']) for i in vs.values())
 
@@ -137,7 +137,8 @@ curl -fsSL https://cdn.jsdelivr.net/gh/{OWNER}/{REPO}@main/deploy.sh | bash -s -
 | `--loader <名称>` | `paper` / `vanilla` / `fabric` / `neoforge` / `forge` | `paper` |
 | `--version <版本>` | Minecraft 版本，如 `1.21.11`、`1.20.1`、`1.12.2` | `1.21.11` |
 | `--mem <GB>` | 分配给服务器的内存，支持小数如 `2.5` | 按物理内存自动取 1/4 |
-| `--port <端口>` | 监听端口 | `25565` |
+| `--port <端口\|auto>` | 监听端口，`auto` = 静默探测空闲端口 | `auto` |
+| `--loader-version <v>` | 指定加载器版本（fabric / forge / neoforge） | 最新稳定版 |
 | `--motd <文字>` | 服务器列表里显示的名称 | `Minecraft Server <版本>` |
 | `--dir <路径>` | 安装目录 | `~/mc` |
 | `--online-mode <true\\|false>` | 正版验证 | `true` |
@@ -200,7 +201,7 @@ curl -fsSL {RAW}/deploy.sh | bash -s -- --list-mods
 
 共 **{total} 个可用组合**，下表为逐个探测的真实结果（✅ 可用，— 该服务端未发布此版本）：
 
-| 版本 | Java | Paper | 原版 | Fabric | NeoForge | Forge |
+| 版本 | Java | Paper | Folia | Purpur | 原版 | Fabric | NeoForge | Forge |
 |---|---|---|---|---|---|---|
 {matrix}
 
