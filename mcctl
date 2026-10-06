@@ -1,0 +1,401 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  mcctl —— Minecraft 服务器管理工具
+#  开服 / 关服 / 重启 / 状态 / 日志 / 控制台 / 备份，一个脚本全包
+#
+#  用法：  ./mcctl start | stop | restart | status | logs | cmd <命令> | backup
+#  无需 tmux / screen，用 FIFO 接管服务端标准输入，能优雅停服（会存档）
+# =============================================================================
+set -uo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$DIR" || exit 1
+
+PIDFILE=".mcctl.pid"
+FIFO=".mcctl.console"
+HOLDER=".mcctl.holder"
+LOGDIR="logs"
+LOGFILE="$LOGDIR/console.log"
+BACKUP_DIR="$HOME/mc-backups"
+
+# ------------------------------- 样式 ---------------------------------------
+if [ -t 1 ]; then
+  R=$'\033[0m'; B=$'\033[1m'; D=$'\033[2m'
+  RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYA=$'\033[36m'; MAG=$'\033[35m'
+else
+  R=; B=; D=; RED=; GRN=; YEL=; CYA=; MAG=
+fi
+
+width=54
+line(){ printf '%s\n' "  ${D}────────────────────────────────────────────────────${R}"; }
+box_top(){ printf '\n  %s╭─ %s%s%s\n' "$CYA" "$B" "$1" "$R"; }
+box_row(){ printf '  %s│%s  %-10s %s\n' "$CYA" "$R" "$1" "$2"; }
+box_end(){ printf '  %s╰──────────────────────────────────────────────────%s\n\n' "$CYA" "$R"; }
+
+die(){ printf '  %s✘ %s%s\n' "$RED" "$*" "$R" >&2; exit 1; }
+ok(){  printf '  %s✔%s %s\n' "$GRN" "$R" "$*"; }
+inf(){ printf '  %s▸%s %s\n' "$CYA" "$R" "$*"; }
+wrn(){ printf '  %s⚠%s %s\n' "$YEL" "$R" "$*" >&2; }
+
+have(){ command -v "$1" >/dev/null 2>&1; }
+is_termux(){ [ -n "${PREFIX:-}" ] && printf '%s' "$PREFIX" | grep -q 'com\.termux'; }
+
+# ------------------------------- 基础读取 -----------------------------------
+read_prop(){
+  [ -f server.properties ] || return 1
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" server.properties | head -1 | tr -d '\r'
+}
+
+server_port(){ local p; p="$(read_prop server-port)"; printf '%s' "${p:-25565}"; }
+server_motd(){ local m; m="$(read_prop motd)"; printf '%s' "${m:-Minecraft Server}"; }
+view_dist(){ local v; v="$(read_prop view-distance)"; printf '%s' "${v:-?}"; }
+
+# 从 start.sh / run.sh 里推断服务端类型与版本
+server_kind(){
+  local f
+  for f in .mcctl.info server.jar; do :; done
+  if [ -f .mcctl.info ]; then cat .mcctl.info; return; fi
+  printf 'Minecraft'
+}
+
+server_pid(){
+  [ -f "$PIDFILE" ] || return 1
+  local p; p="$(cat "$PIDFILE" 2>/dev/null)"
+  [ -n "$p" ] || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  printf '%s' "$p"
+}
+
+is_running(){ server_pid >/dev/null 2>&1; }
+
+# ------------------------------- 端口占用 -----------------------------------
+# Android 上 /proc/net/tcp 是 Permission denied（应用无权读取），
+# 所以不能把它当主要手段。按可靠性从高到低依次尝试：
+#   1) python3 直接尝试 bind —— 最准，能发现任何接口上的占用
+#   2) bash 内建 /dev/tcp 连接 —— 无依赖，能发现本机监听
+#   3) ss / netstat / lsof
+#   4) /proc/net/tcp（需要可读）
+port_used(){
+  local p="$1"
+
+  if have python3; then
+    if python3 -c '
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("", int(sys.argv[1])))
+except OSError:
+    sys.exit(0)          # 绑不上 = 被占用
+sys.exit(1)              # 绑得上 = 空闲
+' "$p" 2>/dev/null; then
+      return 0
+    fi
+  fi
+
+  if (exec 3<>/dev/tcp/127.0.0.1/"$p") 2>/dev/null; then
+    exec 3<&- 2>/dev/null
+    return 0
+  fi
+
+  if have ss; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$p\$" && return 0
+  elif have netstat; then
+    netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$p\$" && return 0
+  elif have lsof; then
+    lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+  fi
+
+  if [ -r /proc/net/tcp ]; then
+    local hex; hex="$(printf '%04X' "$p" 2>/dev/null)"
+    awk -v h=":$hex" 'NR>1 && toupper($2) ~ h"$" && $4=="0A"{x=1} END{exit !x}' \
+      /proc/net/tcp /proc/net/tcp6 2>/dev/null && return 0
+  fi
+  return 1
+}
+
+# 静默探测可用端口：从起始端口向后顺延，全程不打印任何东西
+find_free_port(){
+  local start="${1:-25565}" p i
+  p="$start"
+  for i in $(seq 1 200); do
+    port_used "$p" || { printf '%s' "$p"; return 0; }
+    p=$((p + 1))
+  done
+  printf '%s' "$p"
+}
+
+# ------------------------------- 运行信息 -----------------------------------
+# 运行时长：优先用 PID 文件的创建时间（我们启动时写的，最贴近真实）
+# /proc/stat 的 btime 在 proot / Android 下不可靠，不能作主依据
+proc_etime(){
+  local pid="$1" st now e
+  if [ -f "$PIDFILE" ]; then
+    st="$(stat -c %Y "$PIDFILE" 2>/dev/null || stat -f %m "$PIDFILE" 2>/dev/null)"
+    if [ -n "$st" ]; then
+      now="$(date +%s)"
+      [ "$now" -ge "$st" ] && { fmt_dur $(( now - st )); return 0; }
+    fi
+  fi
+  if have ps; then
+    e="$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ')"
+    [ -n "$e" ] && { printf '%s' "$e"; return 0; }
+  fi
+  return 1
+}
+
+fmt_dur(){
+  local s="$1"
+  if [ "$s" -ge 86400 ]; then printf '%d 天 %d 时' $((s/86400)) $((s%86400/3600))
+  elif [ "$s" -ge 3600 ]; then printf '%d 时 %d 分' $((s/3600)) $((s%3600/60))
+  elif [ "$s" -ge 60 ]; then printf '%d 分 %d 秒' $((s/60)) $((s%60))
+  else printf '%d 秒' "$s"; fi
+}
+
+proc_rss_mb(){
+  local pid="$1"
+  if [ -r "/proc/$pid/status" ]; then
+    awk '/VmRSS/{printf "%d", $2/1024}' "/proc/$pid/status" 2>/dev/null && return 0
+  fi
+  if have ps; then
+    ps -o rss= -p "$pid" 2>/dev/null | awk '{printf "%d", $1/1024}'
+  fi
+}
+
+world_size(){
+  local t=0 d
+  for d in world world_nether world_the_end; do
+    [ -d "$d" ] && t=$(( t + $(du -sk "$d" 2>/dev/null | awk '{print $1}') ))
+  done
+  if [ "$t" -ge 1048576 ]; then awk -v k="$t" 'BEGIN{printf "%.1f GB", k/1048576}'
+  else awk -v k="$t" 'BEGIN{printf "%d MB", k/1024}'; fi
+}
+
+world_dims(){
+  local n=0 d
+  for d in world world_nether world_the_end; do [ -d "$d" ] && n=$((n+1)); done
+  printf '%s' "$n"
+}
+
+# 从最新日志里抓 TPS（Paper/Spigot 的 /tps 输出，或 spark 记录）
+recent_tps(){
+  [ -f "$LOGFILE" ] || return 1
+  grep -aoE 'TPS from last [^:]*: [0-9.,*]+' "$LOGFILE" 2>/dev/null | tail -1
+}
+
+last_log(){
+  [ -f "$LOGFILE" ] || return 1
+  tail -n 1 "$LOGFILE" 2>/dev/null | cut -c1-46
+}
+
+# ------------------------------- 启动 ---------------------------------------
+ensure_fifo(){
+  [ -p "$FIFO" ] && return 0
+  rm -f "$FIFO"
+  mkfifo "$FIFO" || die "无法创建 FIFO（$FIFO）"
+}
+
+# 保持 FIFO 写端常开，否则服务端读到 EOF 会自己退出
+hold_fifo(){
+  if [ -f "$HOLDER" ] && kill -0 "$(cat "$HOLDER" 2>/dev/null)" 2>/dev/null; then return 0; fi
+  ( while :; do sleep 86400; done ) > "$FIFO" 2>/dev/null &
+  printf '%s' "$!" > "$HOLDER"
+}
+
+release_fifo(){
+  [ -f "$HOLDER" ] && { kill "$(cat "$HOLDER" 2>/dev/null)" 2>/dev/null; rm -f "$HOLDER"; }
+}
+
+# 直接复用 start.sh 的内容（保留 exec，这样 $! 拿到的就是 java 本身的 PID，
+# 不会出现 bash 父进程被杀、java 变成孤儿进程的情况）
+java_cmd(){
+  if [ -f ./start.sh ]; then
+    grep -v '^#!' ./start.sh
+  else
+    printf 'exec java -Xms1G -Xmx1G -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -jar server.jar nogui'
+  fi
+}
+
+do_start(){
+  if is_running; then
+    wrn "服务器已经在运行（PID $(server_pid)）"
+    return 1
+  fi
+  if [ ! -f start.sh ] && [ ! -f server.jar ] && [ ! -f run.sh ]; then
+    die "当前目录没有找到服务端（缺 start.sh / server.jar / run.sh）"
+  fi
+
+  mkdir -p "$LOGDIR"
+  ensure_fifo
+  hold_fifo
+
+  if is_termux && have termux-wake-lock; then
+    termux-wake-lock 2>/dev/null && inf "已获取唤醒锁（息屏不会被挂起）"
+    if have termux-notification; then
+      termux-notification --title "Minecraft 服务器" \
+        --content "正在运行 · 端口 $(server_port)" \
+        --ongoing --id mcserver 2>/dev/null || true
+    fi
+  fi
+
+  inf "启动中…"
+  nohup bash -c "$(java_cmd)" < "$FIFO" >> "$LOGFILE" 2>&1 &
+  local pid=$!
+  printf '%s' "$pid" > "$PIDFILE"
+  disown 2>/dev/null || true
+
+  # 等一会儿确认没立刻退出
+  local i
+  for i in 1 2 3 4 5 6; do
+    sleep 1
+    kill -0 "$pid" 2>/dev/null || break
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    ok "已启动（PID $pid）"
+    inf "看状态： ./mcctl status    看日志： ./mcctl logs"
+  else
+    wrn "进程很快退出了，最后几行日志："
+    tail -n 8 "$LOGFILE" | sed 's/^/      /'
+    rm -f "$PIDFILE"; release_fifo
+    return 1
+  fi
+}
+
+# ------------------------------- 停止 ---------------------------------------
+do_stop(){
+  is_running || { wrn "服务器没有在运行"; return 1; }
+  local pid; pid="$(server_pid)"
+  inf "发送 stop 指令（会保存世界，请稍候）…"
+  ensure_fifo
+  printf 'stop\n' > "$FIFO" 2>/dev/null || kill "$pid" 2>/dev/null
+
+  local i
+  for i in $(seq 1 60); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    wrn "等待超时，强制结束"
+    kill "$pid" 2>/dev/null
+    sleep 2
+    kill -9 "$pid" 2>/dev/null
+  fi
+  rm -f "$PIDFILE"
+  release_fifo
+  if is_termux && have termux-notification; then
+    termux-notification-remove mcserver 2>/dev/null || true
+  fi
+  ok "已停止"
+}
+
+# ------------------------------- 状态面板 -----------------------------------
+do_status(){
+  local name kind port pid
+  name="$(server_motd)"
+  port="$(server_port)"
+  pid="$(server_pid 2>/dev/null)"
+
+  box_top "Minecraft 服务器"
+  box_row "名称" "$name"
+  box_row "目录" "$DIR"
+
+  if [ -n "$pid" ]; then
+    box_row "状态" "${GRN}● 运行中${R}"
+    box_row "进程" "PID $pid   $B${B}运行 $(proc_etime "$pid" 2>/dev/null || echo '?')${R}"
+    local rss; rss="$(proc_rss_mb "$pid" 2>/dev/null)"
+    if [ -n "$rss" ] && [ "$rss" -gt 0 ] 2>/dev/null; then
+      if [ "$rss" -ge 1024 ]; then
+        box_row "内存" "$(awk -v m="$rss" 'BEGIN{printf "%.2f GB", m/1024}')（常驻）"
+      else
+        box_row "内存" "${rss} MB（常驻）"
+      fi
+    fi
+  else
+    box_row "状态" "${D}○ 未运行${R}"
+  fi
+
+  box_row "端口" "$port$([ "$port" != "25565" ] && printf ' %s(非默认)%s' "$D" "$R")"
+  box_row "世界" "$(world_dims) 个维度 · $(world_size)"
+  box_row "视距" "$(view_dist) 区块"
+  local tps; tps="$(recent_tps)"
+  [ -n "$tps" ] && box_row "TPS" "$tps"
+  local ll; ll="$(last_log)"
+  [ -n "$ll" ] && box_row "最新日志" "${D}${ll}${R}"
+  box_end
+}
+
+# ------------------------------- 其它子命令 ---------------------------------
+do_logs(){
+  [ -f "$LOGFILE" ] || die "还没有日志（$LOGFILE）"
+  inf "日志：$LOGFILE   （Ctrl+C 退出）"
+  tail -n "${1:-30}" -f "$LOGFILE"
+}
+
+do_cmd(){
+  [ $# -ge 1 ] || die "用法： ./mcctl cmd <游戏内命令>   例如 ./mcctl cmd list"
+  is_running || die "服务器没有在运行"
+  ensure_fifo
+  printf '%s\n' "$*" > "$FIFO"
+  ok "已发送：$*"
+}
+
+do_backup(){
+  local stamp; stamp="$(date +%F-%H%M%S)"
+  mkdir -p "$BACKUP_DIR"
+  local targets=""
+  local d
+  for d in world world_nether world_the_end; do [ -d "$d" ] && targets="$targets $d"; done
+  [ -n "$targets" ] || die "没有找到世界目录（world / world_nether / world_the_end）"
+
+  if is_running; then
+    wrn "服务器正在运行，建议先关服再备份；仍会继续打包当前文件"
+  fi
+  local out="$BACKUP_DIR/world-$stamp.tar.gz"
+  inf "打包中…（$(world_size)）"
+  tar czf "$out" $targets 2>/dev/null || die "打包失败"
+  ok "已备份：$out（$(du -h "$out" | awk '{print $1}')）"
+
+  # 只保留最近 7 份
+  local n
+  n="$(ls -1 "$BACKUP_DIR"/world-*.tar.gz 2>/dev/null | wc -l)"
+  if [ "$n" -gt 7 ]; then
+    ls -1t "$BACKUP_DIR"/world-*.tar.gz | tail -n +8 | while read -r f; do rm -f "$f"; done
+    inf "已清理旧备份，保留最近 7 份"
+  fi
+}
+
+do_help(){
+  printf '\n  %s mcctl —— Minecraft 服务器管理 %s\n\n' "$B" "$R"
+  printf '    %-18s %s\n' "./mcctl start"    "后台开服（Termux 下自动加唤醒锁）"
+  printf '    %-18s %s\n' "./mcctl stop"     "优雅关服（会存档）"
+  printf '    %-18s %s\n' "./mcctl restart"  "重启"
+  printf '    %-18s %s\n' "./mcctl status"   "状态面板"
+  printf '    %-18s %s\n' "./mcctl logs [n]" "查看日志（默认 30 行并跟随）"
+  printf '    %-18s %s\n' "./mcctl cmd <命令>" "向服务器发送指令，如 list / op 名字"
+  printf '    %-18s %s\n' "./mcctl backup"   "备份世界到 ~/mc-backups（保留 7 份）"
+  printf '    %-18s %s\n' "./mcctl port"     "显示当前端口（含占用检查）"
+  printf '    %-18s %s\n' "./mcctl freeport" "静默探测并输出一个可用端口"
+  printf '\n'
+}
+
+# ------------------------------- 入口 ---------------------------------------
+case "${1:-status}" in
+  start)    do_start ;;
+  stop)     do_stop ;;
+  restart)  do_stop; sleep 2; do_start ;;
+  status|st) do_status ;;
+  logs|log) shift; do_logs "$@" ;;
+  cmd|say)  shift; do_cmd "$@" ;;
+  backup|bak) do_backup ;;
+  port)
+    p="$(server_port)"
+    if port_used "$p"; then printf '%s\n' "$p"; wrn "端口 $p 已被占用"
+    else printf '%s\n' "$p"; ok "端口 $p 空闲"; fi
+    ;;
+  freeport)
+    # 静默模式：只输出端口号，便于脚本调用
+    find_free_port "$(server_port)"
+    printf '\n'
+    ;;
+  -h|--help|help) do_help ;;
+  *) do_help; exit 1 ;;
+esac
