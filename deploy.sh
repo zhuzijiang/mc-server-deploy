@@ -121,7 +121,7 @@ print_plan(){
   hr
   printf '%s\n' "本次共 ${TOTAL_STEPS} 步："
   printf '%s\n' "  1 检查运行环境    2 准备 Java      3 解析下载地址    4 下载服务端"
-  printf '%s\n' "  5 安装插件与模组  6 写入配置      7 生成启动脚本    8 启动服务器"
+  printf '%s\n' "  5 安装插件与模组  6 写入配置      7 生成启动脚本与管理工具   8 启动服务器"
   printf '%s\n' "${C_D}  视网速约 1~5 分钟。中途 Ctrl+C 可安全中断，不会留下坏文件${C_0}"
 }
 
@@ -130,10 +130,12 @@ print_summary(){
   ok "${C_BOLD}部署完成${C_0}  目录: ${C_BOLD}${DIR}${C_0}"
   hr
   printf '%s\n' "${C_BOLD}接下来你可以：${C_0}"
-  printf '%s\n' "  开服        cd ${DIR} && ./start.sh"
-  printf '%s\n' "  安全关服    在服务器窗口输入 ${C_BOLD}stop${C_0} 回车"
+  printf '%s\n' "  开服        cd ${DIR} && ./mcctl start"
+  printf '%s\n' "  安全关服    ./mcctl stop          （自动存档，推荐）"
+  printf '%s\n' "  看状态      ./mcctl status        （运行时长/内存/端口/日志）"
+  printf '%s\n' "  备份世界    ./mcctl backup        （存到 ~/mc-backups，保留 7 份）"
+  printf '%s\n' "  看日志      ./mcctl logs"
   printf '%s\n' "  改配置      nano ${DIR}/server.properties"
-  printf '%s\n' "  备份世界    tar czf ~/mc-backup-\$(date +%F).tar.gz world world_nether world_the_end"
   printf '%s\n' "  自己先进    Minecraft 里「多人游戏 → 添加服务器」填 localhost:${PORT}"
   printf '%s\n' "  给别人进    同一 WiFi 下用 本机IP:${PORT}（ip addr 或 ifconfig 查）"
   hr
@@ -144,7 +146,7 @@ print_summary(){
 LOADER="paper"
 VERSION="1.21.11"
 MEM=""
-PORT="25565"
+PORT="auto"
 MOTD=""
 DIR=""
 ONLINE_MODE="true"
@@ -156,6 +158,7 @@ USE_MIRROR="auto"      # auto | always | never
 NO_JAVA=0
 
 # 插件与模组（默认值必须在参数解析之前，否则会把用户传入的值覆盖掉）
+LOADER_VERSION=""     # 指定加载器版本（fabric/forge/neoforge），空=自动
 PLUGINS=""
 MODS=""
 PICK=0
@@ -181,6 +184,8 @@ cat <<'EOF'
   --no-java           跳过 Java 检查与安装（已自行装好时使用）
   --dry-run           只解析并打印将要执行的步骤，不安装、不下载
   --ask               强制进入交互式向导
+  --port <端口|auto>  监听端口，auto 表示静默探测一个空闲端口（默认 auto）
+  --loader-version <v> 指定加载器版本（fabric / forge / neoforge），默认取最新
   --plugins <列表>    安装插件，逗号分隔，如 essentialsx,luckperms,worldedit
   --mods <列表>       安装模组，逗号分隔，如 lithium,ferrite-core,jei
   --pick              交互式挑选插件与模组（列出候选让你选编号）
@@ -208,6 +213,7 @@ while [ $# -gt 0 ]; do
     --version|--ver) VERSION="${2:-}"; shift 2;;
     --mem|--memory)  MEM="${2:-}"; shift 2;;
     --port)          PORT="${2:-}"; shift 2;;
+    --loader-version|--lv) LOADER_VERSION="${2:-}"; shift 2;;
     --motd)          MOTD="${2:-}"; shift 2;;
     --dir)           DIR="${2:-}"; shift 2;;
     --online-mode)   ONLINE_MODE="${2:-}"; shift 2;;
@@ -331,6 +337,12 @@ fetch(){
 # 不写死下载地址，避免上游更新后 404。
 
 CATALOG_FILE=""
+
+REPO_BASES="
+https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main
+https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main
+https://ghproxy.net/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main
+https://gh-proxy.com/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main"
 
 CATALOG_URLS="
 https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/catalog.json
@@ -459,7 +471,7 @@ enc_arr(){
 # 当前加载器对应的 Modrinth 加载器标签
 modrinth_loaders(){
   case "$LOADER" in
-    paper)    printf '%s' "paper spigot bukkit";;
+    paper|folia|purpur) printf '%s' "paper spigot bukkit";;
     fabric)   printf '%s' "fabric";;
     forge)    printf '%s' "forge";;
     neoforge) printf '%s' "neoforge";;
@@ -600,10 +612,18 @@ sha1_of(){
   else echo ""; fi
 }
 
+md5_of(){
+  if have md5sum; then md5sum "$1" | awk '{print $1}'
+  elif have md5; then md5 -q "$1"
+  elif have openssl; then openssl dgst -md5 "$1" | awk '{print $NF}'
+  else echo ""; fi
+}
+
 # 按指定算法计算文件摘要
 digest_of(){
   case "${1:-sha256}" in
     sha1) sha1_of "$2";;
+    md5)  md5_of "$2";;
     *)    sha256_of "$2";;
   esac
 }
@@ -627,6 +647,64 @@ mem_flag(){
 
 # 只保留数字，避免用户输入带单位或小数导致算术/配置出错
 int_only(){ printf '%s' "$1" | tr -cd '0-9'; }
+
+# ------------------------------- 端口探测 -----------------------------------
+# 注意：Android 上 /proc/net/tcp 是 Permission denied，不能作为主要依据。
+# 按可靠性依次尝试：python3 bind > /dev/tcp 连接 > ss/netstat/lsof > /proc/net/tcp
+port_used(){
+  local p="$1"
+  if have python3; then
+    if python3 -c '
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("", int(sys.argv[1])))
+except OSError:
+    sys.exit(0)
+sys.exit(1)
+' "$p" 2>/dev/null; then return 0; fi
+  fi
+  if (exec 3<>/dev/tcp/127.0.0.1/"$p") 2>/dev/null; then exec 3<&- 2>/dev/null; return 0; fi
+  if have ss; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$p\$" && return 0
+  elif have netstat; then
+    netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$p\$" && return 0
+  elif have lsof; then
+    lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+  fi
+  if [ -r /proc/net/tcp ]; then
+    local hex; hex="$(printf '%04X' "$p" 2>/dev/null)"
+    awk -v h=":$hex" 'NR>1 && toupper($2) ~ h"$" && $4=="0A"{x=1} END{exit !x}' \
+      /proc/net/tcp /proc/net/tcp6 2>/dev/null && return 0
+  fi
+  return 1
+}
+
+# 静默探测可用端口：从 25565 起向后顺延，过程中不打印任何东西
+find_free_port(){
+  local start="${1:-25565}" p i
+  p="$start"
+  for i in $(seq 1 200); do
+    port_used "$p" || { printf '%s' "$p"; return 0; }
+    p=$((p + 1))
+  done
+  printf '%s' "$p"
+}
+
+# ------------------------------- 管理工具 mcctl ------------------------------
+# 多通道获取，任一可用即成功；失败不影响开服
+install_mcctl(){
+  local f="${TMPDIR:-/tmp}/mcctl.$$" base
+  rm -f "$f"
+  for base in $REPO_BASES; do
+    if fetch "$base/mcctl" "$f" 2>/dev/null && [ -s "$f" ] && head -1 "$f" 2>/dev/null | grep -q '^#!'; then
+      cp -f "$f" ./mcctl && chmod +x ./mcctl 2>/dev/null && rm -f "$f"
+      return 0
+    fi
+  done
+  rm -f "$f"
+  return 1
+}
 
 # ------------------------------- 安装 Java ----------------------------------
 install_java(){
@@ -707,8 +785,9 @@ SRC_SHA=""; SRC_NAME="server.jar"; IS_INSTALLER=0; SRC_ALGO="sha256"
 resolve_urls(){
   info "解析 ${LOADER} ${VERSION} 的下载地址"
   case "$LOADER" in
-    paper)
-      local j; j="$(fetch_text "https://fill.papermc.io/v3/projects/paper/versions/${VERSION}/builds/latest")"
+    paper|folia)
+      # Paper 与 Folia 同一个 Fill API，只是项目名不同
+      local j; j="$(fetch_text "https://fill.papermc.io/v3/projects/${LOADER}/versions/${VERSION}/builds/latest")"
       SRC_URL="$(jget url "$j")"
       SRC_NAME="$(jget name "$j")"
       SRC_SHA="$(jget sha256 "$j")"
@@ -720,6 +799,20 @@ resolve_urls(){
       local _b; _b="$(jnum size "$j")"
       [ -n "$_b" ] && SRC_SIZE_HINT="$(awk -v b="$_b" 'BEGIN{printf "约 %.0f MB", b/1048576}')"
       ;;
+    purpur)
+      # Purpur 有自己的 API，返回最新构建号与 md5
+      local j b
+      j="$(fetch_text "https://api.purpurmc.org/v2/purpur/${VERSION}/latest")"
+      b="$(jget build "$j")"
+      [ -n "$b" ] || die "Purpur 没有 MC ${VERSION} 的构建。
+     Purpur 从 1.14.1 开始支持，可用 --dry-run 前先确认版本。"
+      SRC_URL="https://api.purpurmc.org/v2/purpur/${VERSION}/${b}/download"
+      SRC_NAME="purpur-${VERSION}-${b}.jar"
+      SRC_SHA="$(jget md5 "$j")"; SRC_ALGO="md5"
+      SRC_SIZE_HINT="$(jnum size "$j" | awk '{printf "约 %.0f MB", $1/1048576}')"
+      ok "Purpur 构建 ${b}"
+      ;;
+
     vanilla)
       if want_mirror; then
         SRC_URL="https://bmclapi2.bangbang93.com/version/${VERSION}/server"
@@ -775,6 +868,13 @@ print(json.load(sys.stdin)['downloads']['server']['sha1'])" 2>/dev/null)"
       lj="$(fetch_text "https://meta.fabricmc.net/v2/versions/loader/${VERSION}")"
       ld="$(jget version "$lj")"
       [ -n "$ld" ] || die "Fabric 不支持 MC ${VERSION}（或接口异常）。Fabric 官方支持 1.14 及以上。"
+      if [ -n "${LOADER_VERSION:-}" ] && [ "$LOADER_VERSION" != "latest" ]; then
+        if printf '%s' "$lj" | grep -q "\"version\"[[:space:]]*:[[:space:]]*\"${LOADER_VERSION}\""; then
+          ld="$LOADER_VERSION"; ok "使用指定的 loader 版本 ${ld}"
+        else
+          warn "该 MC 版本没有 loader ${LOADER_VERSION}，改用最新的 ${ld}"
+        fi
+      fi
       ins="$(jget version "$(fetch_text "https://meta.fabricmc.net/v2/versions/installer")")"
       SRC_URL="https://meta.fabricmc.net/v2/versions/loader/${VERSION}/${ld}/${ins}/server/jar"
       SRC_NAME="fabric-server-mc.${VERSION}-loader.${ld}-launcher.${ins}.jar"
@@ -787,6 +887,13 @@ print(json.load(sys.stdin)['downloads']['server']['sha1'])" 2>/dev/null)"
         nj="$(fetch_text "https://bmclapi2.bangbang93.com/neoforge/list/${VERSION}")"
         n="$(printf '%s' "$nj" | grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' | grep -v beta | tail -1)"
         [ -z "$n" ] && n="$(printf '%s' "$nj" | grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' | tail -1)"
+        if [ -n "${LOADER_VERSION:-}" ] && [ "$LOADER_VERSION" != "latest" ]; then
+          if printf '%s' "$nj" | grep -q "\"version\"[[:space:]]*:[[:space:]]*\"${LOADER_VERSION}\""; then
+            n="$LOADER_VERSION"; ok "使用指定的 NeoForge 版本 ${n}"
+          else
+            warn "该 MC 版本没有 NeoForge ${LOADER_VERSION}，改用 ${n}"
+          fi
+        fi
         [ -n "$n" ] || die "NeoForge 不支持 MC ${VERSION}。NeoForge 仅支持 1.20.2 及以上。"
         SRC_URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${n}/neoforge-${n}-installer.jar"
         if want_mirror; then SRC_URL="https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/${n}/neoforge-${n}-installer.jar"; fi
@@ -796,6 +903,9 @@ print(json.load(sys.stdin)['downloads']['server']['sha1'])" 2>/dev/null)"
         pj="$(fetch_text "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json")"
         n="$(jget "${VERSION}-recommended" "$pj")"
         [ -z "$n" ] && n="$(jget "${VERSION}-latest" "$pj")"
+        if [ -n "${LOADER_VERSION:-}" ] && [ "$LOADER_VERSION" != "latest" ]; then
+          n="$LOADER_VERSION"; ok "使用指定的 Forge 版本 ${n}"
+        fi
         [ -n "$n" ] || die "Forge 没有为 MC ${VERSION} 发布版本。
      可查 https://files.minecraftforge.net/ 确认支持的版本。"
         SRC_URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${n}/forge-${VERSION}-${n}-installer.jar"
@@ -832,8 +942,15 @@ auto_params(){
   [ -z "$DIR" ] && DIR="$HOME/mc"
   [ -z "$MOTD" ] && MOTD="Minecraft Server ${VERSION}"
 
-  # 归一化：端口/视距/人数必须是纯整数
-  PORT="$(int_only "$PORT")";            [ -z "$PORT" ] && PORT=25565
+  # 端口：auto = 静默探测一个空闲端口（不打印探测过程）
+  if [ -z "$PORT" ] || [ "$PORT" = "auto" ]; then
+    PORT="$(find_free_port 25565)"
+  else
+    PORT="$(int_only "$PORT")"; [ -z "$PORT" ] && PORT=25565
+    port_used "$PORT" && warn "端口 ${PORT} 当前被占用，仍按你的指定使用（可能启动失败）"
+  fi
+
+  # 归一化：视距/人数必须是纯整数
   VIEW_DIST="$(int_only "$VIEW_DIST")";  [ -z "$VIEW_DIST" ] && VIEW_DIST=6
   MAX_PLAYERS="$(int_only "$MAX_PLAYERS")"; [ -z "$MAX_PLAYERS" ] && MAX_PLAYERS=10
   SIM_DIST=$(( VIEW_DIST > 4 ? VIEW_DIST - 1 : 4 ))
@@ -1006,7 +1123,7 @@ PROP
   fi
 
   # ---------------------------------------------------------------- 7
-  step "生成启动脚本"
+  step "生成启动脚本与管理工具"
   local MF; MF="$(mem_flag "$MEM")"
   # -XX:+UnlockExperimentalVMOptions 必须排在所有 -XX 之前：
   # G1NewSizePercent / G1MaxNewSizePercent 被 JVM 视为实验性选项，
@@ -1055,7 +1172,19 @@ SH
   fi
   chmod +x start.sh 2>/dev/null
   ok "已生成 ${DIR}/start.sh"
-  hint "以后开服只需执行  cd ${DIR} && ./start.sh"
+
+  # 记录服务端类型与版本，供 mcctl 的状态面板显示
+  printf '%s %s\n' "$LOADER" "$VERSION" > .mcctl.info
+
+  sub "获取管理工具 mcctl ..."
+  if install_mcctl; then
+    ok "已安装 ./mcctl —— 开服/关服/状态/日志/备份 一个脚本全包"
+    sub "常用   ./mcctl status    看状态面板"
+    sub "       ./mcctl stop      优雅关服（会存档）"
+    sub "       ./mcctl backup    备份世界"
+  else
+    hint "mcctl 获取失败（不影响开服，仍可用 ./start.sh）"
+  fi
 
   print_summary
 
@@ -1134,7 +1263,10 @@ if [ "$ASK" = 1 ] || { [ "${ARGS_GIVEN:-0}" = 0 ] && [ "$HAS_TTY" = 1 ]; }; then
 fi
 
 # 校验参数
-case "$LOADER" in paper|vanilla|fabric|neoforge|forge) ;; *) die "--loader 只能是 paper/vanilla/fabric/neoforge/forge";; esac
+case "$LOADER" in
+  paper|folia|purpur|vanilla|fabric|neoforge|forge) ;;
+  *) die "--loader 只能是 paper / folia / purpur / vanilla / fabric / neoforge / forge";;
+esac
 [ -n "$VERSION" ] || die "--version 不能为空"
 auto_params
 NEED_JAVA="$(java_for "$VERSION")"
