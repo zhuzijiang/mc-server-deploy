@@ -3,7 +3,7 @@
 一条命令在 **Android/Termux**、**proot 发行版**、**Linux**、**macOS**、**Windows** 上装好 Minecraft Java 版服务端。
 
 - 支持 **Paper / 原版 / Fabric / NeoForge / Forge** 五种服务端
-- 覆盖 **MC 1.7.10 ~ 26.x 共 55 个版本**，自动匹配所需 Java 版本
+- 覆盖 **MC 1.7.10 ~ 26.x 共 76 个版本**，自动匹配所需 Java 版本
 - 官方直链 + 国内镜像（BMCLAPI），自动选路、自动重试、可选校验
 - 附带一个**离线可用的网页控制台** `index.html`，点点选选就能生成命令
 
@@ -82,7 +82,8 @@ curl -fsSL https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main/deploy.s
 | `--loader <名称>` | `paper` / `vanilla` / `fabric` / `neoforge` / `forge` | `paper` |
 | `--version <版本>` | Minecraft 版本，如 `1.21.11`、`1.20.1`、`1.12.2` | `1.21.11` |
 | `--mem <GB>` | 分配给服务器的内存，支持小数如 `2.5` | 按物理内存自动取 1/4 |
-| `--port <端口>` | 监听端口 | `25565` |
+| `--port <端口\|auto>` | 监听端口，`auto` = 静默探测空闲端口 | `auto` |
+| `--loader-version <v>` | 指定加载器版本（fabric / forge / neoforge） | 最新稳定版 |
 | `--motd <文字>` | 服务器列表里显示的名称 | `Minecraft Server <版本>` |
 | `--dir <路径>` | 安装目录 | `~/mc` |
 | `--online-mode <true\|false>` | 正版验证 | `true` |
@@ -104,7 +105,7 @@ curl -fsSL https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main/deploy.s
 
 ## 插件与模组
 
-内置 **22 个常用插件** 和 **24 个常用模组**目录，元数据取自 Modrinth（按下载量筛选），
+内置 **33 个常用插件** 和 **48 个常用模组**目录，元数据取自 Modrinth（按下载量筛选），
 安装时按你选的**加载器 + MC 版本**实时匹配可用文件，不写死地址。
 
 ```bash
@@ -125,24 +126,24 @@ curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/de
 脚本会自动跳过**仅客户端**的内容（装在服务端没有作用），并把文件放进 `plugins/` 或 `mods/`。
 标记说明：**★** 需要客户端也装同样的模组；**⚠** 仅客户端，服务端装了没用。
 
-### 插件（22 个）
+### 插件（33 个）
 
 | 分类 | 内容 |
 |---|---|
-| 基础管理 | `lmd`、`luckperms`、`tab-was-taken`、`essentialsx`、`placeholderapi` |
-| 世界与保护 | `worldedit`、`worldguard`、`multiverse-core`、`fastasyncworldedit`、`coreprotect` |
-| 性能与维护 | `spark`、`chunky` |
+| 基础管理 | `lmd`、`luckperms`、`tab-was-taken`、`essentialsx`、`placeholderapi`、`deluxemenus`、`towny`、`chestshop` |
+| 世界与保护 | `worldedit`、`worldguard`、`multiverse-core`、`fastasyncworldedit`、`coreprotect`、`multiverse-inventories`、`griefprevention`、`multiverse-portals` |
+| 性能与维护 | `spark`、`chunky`、`bluemap`、`squaremap` |
 | 兼容与联机 | `viaversion`、`viabackwards`、`skinsrestorer`、`geyser`、`floodgate` |
-| 玩法与社交 | `simple-voice-chat` ★、`packetevents`、`grimac`、`discordsrv`、`dynmap` |
+| 玩法与社交 | `simple-voice-chat` ★、`packetevents`、`grimac`、`discordsrv`、`dynmap`、`crazycrates`、`excellentcrates`、`mythicmobs` |
 
-### 模组（24 个）
+### 模组（48 个）
 
 | 分类 | 内容 |
 |---|---|
-| 性能优化 | `ferrite-core` ★、`lithium` ★、`modernfix` ★、`krypton` ★、`c2me-fabric`、`noisium`、`servercore` |
-| 前置库 | `fabric-api` ★、`cloth-config` ★、`fabric-language-kotlin` ★、`architectury-api` ★ |
-| 玩法内容 | `veinminer`、`create` ★、`waystones` ★、`farmers-delight` ★、`terralith`、`comforts` ★、`rightclickharvest` |
-| 信息显示 | `xaeros-minimap` ★、`appleskin` ★、`jei` ★、`jade` ★ |
+| 性能优化 | `ferrite-core` ★、`lithium` ★、`modernfix` ★、`krypton` ★、`clumps` ★、`c2me-fabric`、`memoryleakfix` ★、`noisium`、`servercore`、`fastload` ★、`threadtweak` ★、`async-locator`、`tt20` |
+| 前置库 | `fabric-api` ★、`cloth-config` ★、`fabric-language-kotlin` ★、`architectury-api` ★、`geckolib` ★、`forge-config-api-port` ★、`puzzles-lib` ★、`balm` ★、`midnightlib` ★、`trinkets` ★、`cardinal-components-api` |
+| 玩法内容 | `veinminer`、`supplementaries` ★、`create` ★、`waystones` ★、`quark` ★、`farmers-delight` ★、`terralith`、`comforts` ★、`sophisticated-backpacks` ★、`rightclickharvest`、`aether` ★、`botania` ★、`ars-nouveau` ★、`mekanism` ★、`immersiveengineering` ★、`iron-chests` ★ |
+| 信息显示 | `xaeros-minimap` ★、`appleskin` ★、`jei` ★、`jade` ★、`emi` ★、`wthit` ★ |
 | 仅客户端 | `sodium` ⚠、`iris` ⚠ |
 
 > 插件只能在 Paper 上运行；模组需要 Fabric / NeoForge / Forge。选错时脚本会提示并跳过，不会静默失败。
@@ -151,83 +152,106 @@ curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/de
 
 ## 版本 × 服务端 可用性矩阵
 
-共 **217 个可用组合**，下表为逐个探测的真实结果（✅ 可用，— 该服务端未发布此版本）：
+共 **309 个可用组合**，下表为逐个探测的真实结果（✅ 可用，— 该服务端未发布此版本）：
 
-| 版本 | Java | Paper | 原版 | Fabric | NeoForge | Forge |
+| 版本 | Java | Paper | Folia | Purpur | 原版 | Fabric | NeoForge | Forge |
 |---|---|---|---|---|---|---|
-| `26.3` | Java 25 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `26.2` | Java 25 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `26.1.2` | Java 25 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.11` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.10` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.8` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.7` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.6` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.5` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.4` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.3` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21.1` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.21` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.20.6` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.20.5` | Java 21 | ✅ | ✅ | ✅ | ✅ | — |
-| `1.20.4` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.20.3` | Java 17 | — | ✅ | ✅ | ✅ | ✅ |
-| `1.20.2` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.20.1` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `1.20` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.19.4` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.19.3` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.19.2` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.19.1` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.19` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.18.2` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.18.1` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.18` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.17.1` | Java 17 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.17` | Java 17 | ✅ | ✅ | ✅ | — | — |
-| `1.16.5` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.16.4` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.16.3` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.16.2` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.16.1` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.15.2` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.15.1` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.15` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.14.4` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.14.3` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.14.2` | Java 8 | ✅ | ✅ | ✅ | — | ✅ |
-| `1.13.2` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.13.1` | Java 8 | ✅ | ✅ | — | — | — |
-| `1.12.2` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.12.1` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.12` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.11.2` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.11` | Java 8 | — | ✅ | — | — | ✅ |
-| `1.10.2` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.10` | Java 8 | — | ✅ | — | — | ✅ |
-| `1.9.4` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.9` | Java 8 | — | ✅ | — | — | ✅ |
-| `1.8.9` | Java 8 | — | ✅ | — | — | ✅ |
-| `1.8.8` | Java 8 | ✅ | ✅ | — | — | ✅ |
-| `1.7.10` | Java 8 | ✅ | ✅ | — | — | ✅ |
+| `26.3` | Java 25 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `26.2` | Java 25 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `26.1.2` | Java 25 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `26.1.1` | Java 25 | ✅ | — | — | ✅ | ✅ | ✅ | ✅ |
+| `26.1` | Java 25 | — | — | — | ✅ | ✅ | — | ✅ |
+| `1.21.11` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.10` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.9` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.8` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.7` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.6` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.5` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.4` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21.3` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.21.2` | Java 21 | — | — | — | ✅ | ✅ | ✅ | — |
+| `1.21.1` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.21` | Java 21 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.20.6` | Java 21 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.20.5` | Java 21 | ✅ | — | — | ✅ | ✅ | ✅ | — |
+| `1.20.4` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.20.3` | Java 17 | — | — | — | ✅ | ✅ | ✅ | ✅ |
+| `1.20.2` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.20.1` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `1.20` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.19.4` | Java 17 | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| `1.19.3` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.19.2` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.19.1` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.19` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.18.2` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.18.1` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.18` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.17.1` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.17` | Java 17 | ✅ | — | ✅ | ✅ | ✅ | — | — |
+| `1.16.5` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.16.4` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.16.3` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.16.2` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.16.1` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.16` | Java 8 | — | — | — | ✅ | ✅ | — | — |
+| `1.15.2` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.15.1` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.15` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.14.4` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.14.3` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.14.2` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | ✅ |
+| `1.14.1` | Java 8 | ✅ | — | ✅ | ✅ | ✅ | — | — |
+| `1.14` | Java 8 | ✅ | — | — | ✅ | ✅ | — | — |
+| `1.13.2` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.13.1` | Java 8 | ✅ | — | — | ✅ | — | — | — |
+| `1.13` | Java 8 | ✅ | — | — | ✅ | — | — | — |
+| `1.12.2` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.12.1` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.12` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.11.2` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.11.1` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.11` | Java 8 | — | — | — | ✅ | — | — | ✅ |
+| `1.10.2` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.10.1` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.10` | Java 8 | — | — | — | ✅ | — | — | ✅ |
+| `1.9.4` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.9.3` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.9.2` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.9.1` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.9` | Java 8 | — | — | — | ✅ | — | — | ✅ |
+| `1.8.9` | Java 8 | — | — | — | ✅ | — | — | ✅ |
+| `1.8.8` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
+| `1.8.7` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.6` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.5` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.4` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.3` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.2` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8.1` | Java 8 | — | — | — | ✅ | — | — | — |
+| `1.8` | Java 8 | — | — | — | ✅ | — | — | ✅ |
+| `1.7.10` | Java 8 | ✅ | — | — | ✅ | — | — | ✅ |
 
 各服务端覆盖版本数：
 
 | 服务端 | 覆盖版本数 |
 |---|---|
-| Paper | 50 |
-| 原版 | 55 |
-| Fabric | 41 |
-| NeoForge | 19 |
-| Forge | 52 |
+| Paper | 55 |
+| Folia | 12 |
+| Purpur | 41 |
+| 原版 | 76 |
+| Fabric | 48 |
+| NeoForge | 21 |
+| Forge | 56 |
 
 ### 推荐组合
 
 | 版本 | Java | 可用服务端 |
 |---|---|---|
-| `1.21.11` | Java 21 | Paper、原版、Fabric、NeoForge、Forge |
-| `1.21.1` | Java 21 | Paper、原版、Fabric、NeoForge、Forge |
-| `1.20.1` | Java 17 | Paper、原版、Fabric、NeoForge、Forge |
+| `1.21.11` | Java 21 | Paper、Folia、Purpur、原版、Fabric、NeoForge、Forge |
+| `1.21.1` | Java 21 | Paper、Purpur、原版、Fabric、NeoForge、Forge |
+| `1.20.1` | Java 17 | Paper、Folia、Purpur、原版、Fabric、NeoForge、Forge |
 | `1.12.2` | Java 8 | Paper、原版、Forge |
 
 **怎么选：**
@@ -246,7 +270,7 @@ curl -fsSL https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/de
 下载后用浏览器打开，点点选选就能生成和你的设备匹配的命令，并列出所有直链与镜像。
 
 - 自动探测访问设备（系统、内存、CPU 核心数），给出推荐配置
-- 5 种运行环境 × 5 种服务端 × 55 个版本自由组合，不支持的组合自动置灰
+- 5 种运行环境 × 5 种服务端 × 76 个版本自由组合，不支持的组合自动置灰
 - 6 步傻瓜式流程，每一步都有「操作 / 成功标志 / 常见错误」
 - `server.properties` 与 JVM 参数的逐项中文说明
 - 12 条报错信息对照表、内网穿透方案对比、备份与运维指引
