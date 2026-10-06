@@ -59,6 +59,19 @@ function Write-Warn2{ param($m) Write-Host "⚠ $m" -ForegroundColor Yellow }
 function Write-Err  { param($m) Write-Host "✘ $m" -ForegroundColor Red }
 function Write-Hr   { Write-Host ("─" * 52) -ForegroundColor DarkGray }
 
+# ------------------------- 运行时进度提示 ------------------------------------
+$TOTAL_STEPS = 7
+$STEP = 0
+function Write-Step {
+    param([string]$Title)
+    $script:STEP++
+    Write-Host ""
+    Write-Host ("━━ 第 {0}/{1} 步 · {2} ━━" -f $script:STEP, $TOTAL_STEPS, $Title) -ForegroundColor Cyan
+}
+function Write-Sub  { param([string]$m) Write-Host "   $m" }
+function Write-Hint { param([string]$m) Write-Host "   ↳ $m" -ForegroundColor DarkGray }
+function Write-WarnHint { param([string]$m) Write-Host "   ↳ $m" -ForegroundColor Yellow }
+
 # ------------------------- Java 需求 -----------------------------------------
 function Get-JavaFor {
     param([string]$v)
@@ -136,8 +149,22 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Hr
-Write-Info "环境 Windows   服务端 $Loader $Version   需要 Java $needJava   内存 ${Mem}G"
+Write-Host "Minecraft 服务器部署" -ForegroundColor White
 Write-Hr
+Write-Sub "服务端  $Loader $Version"
+Write-Sub "环境    Windows"
+Write-Sub "Java    $needJava"
+Write-Sub "内存    ${Mem}G"
+Write-Sub "目录    $Dir"
+Write-Sub "端口    $Port"
+Write-Hr
+Write-Sub "本次共 $TOTAL_STEPS 步："
+Write-Sub "  1 检查环境    2 准备 Java      3 解析下载地址    4 下载服务端"
+Write-Sub "  5 写入配置    6 生成启动脚本   7 启动服务器"
+Write-Hint "中途 Ctrl+C 可安全中断，不会留下坏文件"
+
+Write-Step "检查运行环境"
+Write-Sub "已有 Java：$(if ((Get-CurrentJava) -gt 0) { "Java $(Get-CurrentJava)" } else { "未安装" })"
 
 # ------------------------- 安装 Java -----------------------------------------
 if (-not $NoJava) {
@@ -180,6 +207,8 @@ if (-not $NoJava) {
         }
     }
 } else { Write-Info "按参数跳过 Java 检查" }
+
+Write-Step "准备 Java $needJava"
 
 # ------------------------- 解析下载地址 --------------------------------------
 Write-Info "解析 $Loader $Version 的下载地址"
@@ -247,6 +276,9 @@ if ($DryRun) {
     return
 }
 
+Write-Step "解析下载地址"
+Write-Sub "服务端     $srcName"
+
 # ------------------------- 下载与安装 ----------------------------------------
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 Set-Location $Dir
@@ -276,6 +308,8 @@ if ($isInstaller) {
     }
 }
 
+Write-Step "下载服务端文件"
+
 # ------------------------- 写配置 --------------------------------------------
 Set-Content -Path eula.txt -Value 'eula=true' -Encoding ascii
 Write-Ok "已同意 EULA（eula.txt）"
@@ -302,33 +336,48 @@ if (Test-Path server.properties) {
     Write-Ok "已写入 server.properties"
 }
 
+Write-Step "写入配置"
+Write-Hint "Minecraft 服务端必须显式同意许可协议才能启动，这一步是自动完成的"
+
 # ------------------------- 启动脚本 ------------------------------------------
+# here-string 的闭合定界符单独占一行、不与管道同行，再用变量写出，避免解析歧义；
+# 用单引号版 @' '@ 可防止内容里的 $ 被 PowerShell 展开
 if ($isInstaller) {
-    @'
+    $bat = @'
 @echo off
 cd /d %~dp0
 call run.bat nogui
-'@ | Set-Content -Path start.bat -Encoding ascii
+'@
 } else {
-    @"
+    $bat = @'
 @echo off
 cd /d %~dp0
-java -Xms$memFlag -Xmx$memFlag $jarFlags -jar server.jar nogui
+java __JVM__ -jar server.jar nogui
 pause
-"@ | Set-Content -Path start.bat -Encoding ascii
+'@
+    $bat = $bat.Replace('__JVM__', "-Xms$memFlag -Xmx$memFlag $jarFlags")
 }
+$bat | Set-Content -Path start.bat -Encoding ascii
 Write-Ok "已生成启动脚本 start.bat"
 
+Write-Step "生成启动脚本"
 Write-Hr
 Write-Ok "部署完成  目录: $Dir"
-Write-Host "   启动：  .\start.bat   （或双击）"
-Write-Host "   关闭：  在服务器窗口输入 stop 回车（不要直接点关闭按钮）"
-Write-Host "   配置：  $Dir\server.properties"
+Write-Hr
+Write-Host "接下来你可以：" -ForegroundColor White
+Write-Sub "开服        .\start.bat   （或双击运行）"
+Write-Sub "安全关服     在服务器窗口输入 stop 回车"
+Write-Sub "改配置      notepad $Dir\server.properties"
+Write-Sub "备份世界    打包 world、world_nether、world_the_end 三个目录"
+Write-Sub "自己先进    Minecraft 里添加服务器 localhost:$Port"
+Write-Sub "给别人进    同一局域网用 本机IP:$Port（ipconfig 查）"
 Write-Hr
 
 if (-not $NoStart) {
-    Write-Info "正在启动服务器，首次会生成世界，请耐心等待..."
-    Write-Info '看到 Done (xx.xxs)! For help, type "help" 就是启动成功'
+    Write-Step "启动服务器"
+    Write-WarnHint "首次启动要生成世界，通常 1~3 分钟，请勿中断"
+    Write-Sub '成功标志：Done (xx.xxs)! For help, type "help"'
+    Write-Sub "安全关服：在当前窗口输入 stop 回车"
     Write-Hr
     & .\start.bat
 } else {

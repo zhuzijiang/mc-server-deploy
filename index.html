@@ -882,13 +882,15 @@ function step4(){
       o.push("# " + LOADERS[S.loader].n + " 安装器已经生成 run.bat，直接使用它");
       o.push(".\\run.bat");
     } else {
-      o.push("# 用 here-string 把启动脚本写入 start.bat（注意 '@ 必须顶格）");
-      o.push("@'");
+      o.push("# 用 here-string 把启动脚本写入 start.bat");
+      o.push("# 注意：开头 @' 必须顶格，结尾 '@ 也要单独占一行（不要和管道写在同一行）");
+      o.push("$bat = @'");
       o.push("@echo off");
       o.push("cd /d %~dp0");
       o.push("java " + jvmFlags(S.mem) + " -jar server.jar nogui");
       o.push("pause");
-      o.push("'@ | Set-Content -Path start.bat -Encoding ascii");
+      o.push("'@");
+      o.push("Set-Content -Path start.bat -Value $bat -Encoding ascii");
       o.push("");
       o.push("# 以后双击 start.bat 即可开服；现在先直接运行一次");
       o.push(".\\start.bat");

@@ -37,6 +37,109 @@ warn(){ printf '%s\n' "${C_Y}⚠${C_0} $*" >&2; }
 die(){  printf '%s\n' "${C_R}✘ $*${C_0}" >&2; exit 1; }
 hr(){   printf '%s\n' "${C_D}────────────────────────────────────────────────${C_0}"; }
 
+# ------------------------------- 进度提示 -----------------------------------
+# 运行时的分步进度，让用户随时知道「做到哪了、还要多久、卡住该怎么办」
+TOTAL_STEPS=7
+STEP=0
+step(){
+  STEP=$((STEP+1))
+  printf '\n%s\n' "${C_BOLD}${C_B}━━ 第 ${STEP}/${TOTAL_STEPS} 步 · $* ━━${C_0}"
+}
+sub(){       printf '   %s\n' "$*"; }
+hint(){      printf '   %s\n' "${C_D}↳ $*${C_0}"; }
+warn_hint(){ printf '   %s\n' "${C_Y}↳ $*${C_0}"; }
+
+env_desc(){
+  case "$1" in
+    termux) printf '%s' "（Termux 原生）";;
+    proot)  printf '%s' "（proot 发行版）";;
+    macos)  printf '%s' "（macOS）";;
+    *)      printf '%s' "（Linux）";;
+  esac
+}
+
+current_java_human(){
+  local c; c="$(current_java)"
+  [ "$c" = "0" ] && printf '未安装' || printf 'Java %s' "$c"
+}
+
+file_size(){
+  local b; b="$(wc -c < "$1" 2>/dev/null || echo 0)"
+  if [ "$b" -ge 1048576 ] 2>/dev/null; then
+    awk -v b="$b" 'BEGIN{printf "%.1f MB", b/1048576}'
+  else
+    printf '%s 字节' "$b"
+  fi
+}
+
+tty_progress(){ [ -t 2 ] && echo 1 || echo 0; }
+
+# 尽力探测远端文件大小：跟随跳转后取最后一个 content-length
+probe_size(){
+  local cl
+  cl="$(curl -sIL -m 20 "$1" 2>/dev/null \
+        | awk 'tolower($1)=="content-length:"{v=$2} END{gsub(/\r/,"",v); print v}')"
+  case "$cl" in ''|*[!0-9]*) return 1;; esac
+  awk -v b="$cl" 'BEGIN{printf "约 %.1f MB", b/1048576}'
+}
+
+check_disk_space(){
+  local avail mb
+  avail="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print $4}')"
+  [ -z "$avail" ] && return 0
+  mb=$(( avail / 1024 ))
+  if [ "$mb" -lt 1024 ]; then
+    warn "可用磁盘只有 ${mb} MB，服务端加世界存档通常需要 1 GB 以上"
+    hint "先清理空间，或换个大点的目录：--dir /其它/路径"
+  else
+    sub "可用磁盘   $(( mb / 1024 )) GB"
+  fi
+}
+
+check_memory_sanity(){
+  local total_kb total_gb whole
+  total_kb="$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+  [ "$total_kb" = "0" ] && return 0
+  total_gb=$(( total_kb / 1024 / 1024 ))
+  whole="${MEM%.*}"
+  if [ "$whole" -gt $(( total_gb / 2 )) ] 2>/dev/null; then
+    warn "你分配了 ${MEM}G，超过物理内存 ${total_gb}G 的一半"
+    hint "服务端可能被系统强制结束（日志里表现为毫无征兆的 Killed）。建议降到 $(( total_gb / 2 ))G 以内"
+  fi
+}
+
+print_plan(){
+  hr
+  printf '%s\n' "${C_BOLD}Minecraft 服务器部署${C_0}"
+  hr
+  printf '%s\n' "  服务端  ${C_BOLD}${LOADER}${C_0} ${VERSION}"
+  printf '%s\n' "  环境    ${ENVK}$(env_desc "$ENVK")"
+  printf '%s\n' "  Java    ${NEED_JAVA}"
+  printf '%s\n' "  内存    ${MEM}G"
+  printf '%s\n' "  目录    ${DIR}"
+  printf '%s\n' "  端口    ${PORT}"
+  hr
+  printf '%s\n' "本次共 ${TOTAL_STEPS} 步："
+  printf '%s\n' "  1 检查运行环境    2 准备 Java      3 解析下载地址    4 下载服务端"
+  printf '%s\n' "  5 写入配置        6 生成启动脚本   7 启动服务器"
+  printf '%s\n' "${C_D}  视网速约 1~5 分钟。中途 Ctrl+C 可安全中断，不会留下坏文件${C_0}"
+}
+
+print_summary(){
+  hr
+  ok "${C_BOLD}部署完成${C_0}  目录: ${C_BOLD}${DIR}${C_0}"
+  hr
+  printf '%s\n' "${C_BOLD}接下来你可以：${C_0}"
+  printf '%s\n' "  开服        cd ${DIR} && ./start.sh"
+  printf '%s\n' "  安全关服    在服务器窗口输入 ${C_BOLD}stop${C_0} 回车"
+  printf '%s\n' "  改配置      nano ${DIR}/server.properties"
+  printf '%s\n' "  备份世界    tar czf ~/mc-backup-\$(date +%F).tar.gz world world_nether world_the_end"
+  printf '%s\n' "  自己先进    Minecraft 里「多人游戏 → 添加服务器」填 localhost:${PORT}"
+  printf '%s\n' "  给别人进    同一 WiFi 下用 本机IP:${PORT}（ip addr 或 ifconfig 查）"
+  hr
+}
+
+
 # ------------------------------- 默认参数 -----------------------------------
 LOADER="paper"
 VERSION="1.21.11"
@@ -87,6 +190,7 @@ EOF
 }
 
 while [ $# -gt 0 ]; do
+  ARGS_GIVEN=1
   case "$1" in
     --loader)        LOADER="${2:-}"; shift 2;;
     --version|--ver) VERSION="${2:-}"; shift 2;;
@@ -110,10 +214,12 @@ done
 
 # 交互式读取必须走 /dev/tty：用 curl|bash 运行时 stdin 是脚本本身
 ask(){
+  # 用 curl|bash 运行时 stdin 是脚本本身，交互必须走 /dev/tty。
+  # 但 /dev/tty 可能不存在或不可打开（非交互场景），所以要容错且不刷错误信息。
   local prompt="$1" def="$2" ans=""
-  if [ -r /dev/tty ]; then
-    printf '%s' "${C_BOLD}${prompt}${C_0} ${C_D}[${def}]${C_0} " > /dev/tty
-    read -r ans < /dev/tty || ans=""
+  if [ "${HAS_TTY:-0}" = 1 ]; then
+    printf '%s' "${C_BOLD}${prompt}${C_0} ${C_D}[${def}]${C_0} " > /dev/tty 2>/dev/null || true
+    ans="$( { read -r _a < /dev/tty && printf '%s' "$_a"; } 2>/dev/null )" || ans=""
   fi
   printf '%s' "${ans:-$def}"
 }
@@ -163,16 +269,33 @@ current_java(){
 have(){ command -v "$1" >/dev/null 2>&1; }
 
 fetch(){
-  # fetch <url> <输出文件>：带自建重试，因为 curl 的 --retry 并不覆盖所有瞬时错误
-  local url="$1" out="$2" i
+  # fetch <url> <输出文件> [progress]
+  # progress 模式且输出是终端时显示进度条，否则静默（重定向到日志时不会刷屏）
+  #
+  # 注意：这里必须写「字面量」重定向。bash 不会把变量内容识别成重定向符，
+  # 写成 $red（值为 2>/dev/null）会被当成额外参数传给 curl，
+  # 结果 curl 报 "URL rejected: Bad hostname" 并返回退出码 3，很难排查。
+  local url="$1" out="$2" mode="${3:-quiet}" i
+  local show=0
+  [ "$mode" = "progress" ] && [ -t 2 ] && show=1
+
   for i in 1 2 3; do
     if have curl; then
       if [ -s "$out" ]; then
-        # 已存在半截文件：先试断点续传；失败就删掉重下，避免错误内容越滚越大
-        curl -fsSL -C - -m 300 -o "$out" "$url" 2>/dev/null \
-          || { rm -f "$out"; curl -fsSL -m 300 -o "$out" "$url" 2>/dev/null; }
+        # 已有半截文件：先试断点续传；失败就删掉重下，避免错误内容越滚越大
+        if [ "$show" = 1 ]; then
+          curl -fL --progress-bar -C - -m 300 -o "$out" "$url" \
+            || { rm -f "$out"; curl -fL --progress-bar -m 300 -o "$out" "$url"; }
+        else
+          curl -fsSL -C - -m 300 -o "$out" "$url" 2>/dev/null \
+            || { rm -f "$out"; curl -fsSL -m 300 -o "$out" "$url" 2>/dev/null; }
+        fi
       else
-        curl -fsSL -m 300 -o "$out" "$url" 2>/dev/null
+        if [ "$show" = 1 ]; then
+          curl -fL --progress-bar -m 300 -o "$out" "$url"
+        else
+          curl -fsSL -m 300 -o "$out" "$url" 2>/dev/null
+        fi
       fi
     elif have wget; then
       wget -q -O "$out" --tries=2 "$url" 2>/dev/null
@@ -180,10 +303,17 @@ fetch(){
       die "系统里既没有 curl 也没有 wget，无法下载"
     fi
     [ -s "$out" ] && return 0
-    warn "第 ${i} 次下载未成功，重试..."
+    [ "$i" -lt 3 ] && warn "第 ${i} 次下载未成功，稍后重试（共 3 次）"
     sleep 2
   done
   return 1
+}
+
+# 判断文件是不是真正的 jar：jar 本质是 zip，头两字节固定为 PK。
+# 比按体积猜可靠得多 —— Fabric 的启动器 jar 只有约 170 KB，
+# 而网络拦截页面虽可能有几十 KB，却不会以 PK 开头。
+is_jar(){
+  [ "$(head -c 2 "$1" 2>/dev/null)" = "PK" ]
 }
 
 fetch_text(){
@@ -202,6 +332,11 @@ fetch_text(){
 jget(){
   printf '%s' "$2" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 \
     | sed 's/.*"\([^"]*\)"$/\1/'
+}
+
+# 提取 JSON 里的第一个数字字段（如 "size": 54846016）
+jnum(){
+  printf '%s' "$2" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*[0-9]+" | head -1 | grep -oE '[0-9]+$'
 }
 
 sha256_of(){
@@ -312,6 +447,7 @@ install_java(){
 
 # ------------------------------- 解析下载地址 -------------------------------
 SRC_URL=""; SRC_MODE="jar"   # jar=直接可跑的 jar；installer=需要先跑安装器
+SRC_SIZE_HINT="未知（视服务端而定）"
 SRC_SHA=""; SRC_NAME="server.jar"; IS_INSTALLER=0; SRC_ALGO="sha256"
 
 resolve_urls(){
@@ -327,6 +463,8 @@ resolve_urls(){
      可能原因：该版本不存在 / 网络不通 / API 变更。
      可换版本，或用 --loader vanilla 部署原版。"
       ok "Paper 构建: ${SRC_NAME}"
+      local _b; _b="$(jnum size "$j")"
+      [ -n "$_b" ] && SRC_SIZE_HINT="$(awk -v b="$_b" 'BEGIN{printf "约 %.0f MB", b/1048576}')"
       ;;
     vanilla)
       if want_mirror; then
@@ -449,12 +587,10 @@ auto_params(){
 
 # ------------------------------- 安装流程 -----------------------------------
 do_install(){
-  hr
-  info "${C_BOLD}环境${C_0}  ${ENVK}    ${C_BOLD}服务端${C_0} ${LOADER} ${VERSION}    ${C_BOLD}Java${C_0} ${NEED_JAVA}    ${C_BOLD}内存${C_0} ${MEM}G"
-  hr
+  print_plan
 
   if [ "${DRY_RUN:-0}" = 1 ]; then
-    info "${C_BOLD}DRY RUN${C_0}：只解析地址并打印计划，不安装、不下载、不修改任何文件"
+    step "预演模式：只解析地址，不做任何改动"
     printf '%s\n' "   Java 需求 : ${NEED_JAVA}（当前检测到: $(current_java)）"
     resolve_urls
     printf '%s\n' "   服务端文件: ${SRC_NAME}"
@@ -463,51 +599,104 @@ do_install(){
     printf '%s\n' "   内存参数  : -Xms$(mem_flag "$MEM") -Xmx$(mem_flag "$MEM")"
     printf '%s\n' "   安装目录  : ${DIR}"
     printf '%s\n' "   端口/视距 : ${PORT} / ${VIEW_DIST}（模拟距离 ${SIM_DIST}）"
+    printf '\n%s\n' "${C_D}以上地址均可直接复制到下载工具里手动下载。去掉 --dry-run 即真正开始部署。${C_0}"
     exit 0
   fi
 
-  install_java
-  resolve_urls
+  # ---------------------------------------------------------------- 1
+  step "检查运行环境"
+  sub "运行环境   ${ENVK}$(env_desc "$ENVK")"
+  sub "Java 需求  ${NEED_JAVA}（当前: $(current_java_human)）"
+  sub "安装目录   ${DIR}"
+  sub "监听端口   ${PORT}   内存 ${MEM}G"
 
+  check_disk_space
+  check_memory_sanity
+  [ "$ENVK" = "termux" ] && hint "开服期间请勿清理 Termux 通知栏的常驻通知，否则系统可能回收进程"
+  [ "$ENVK" = "proot" ]  && hint "建议先在 Termux 外层执行 termux-wake-lock，防止息屏后被挂起"
+
+  # ---------------------------------------------------------------- 2
+  step "准备 Java ${NEED_JAVA}"
+  install_java
+  sub "java 位置  $(command -v java 2>/dev/null || echo '未找到')"
+
+  # ---------------------------------------------------------------- 3
+  step "解析服务端下载地址"
+  resolve_urls
+  sub "服务端     ${SRC_NAME}"
+  if [ "$IS_INSTALLER" = 1 ]; then
+    hint "该服务端需要先运行安装器，会额外下载依赖库，耗时较长"
+  else
+    # Paper 已从 API 拿到准确大小；其它来源尽力探测一次
+    case "$SRC_SIZE_HINT" in
+      *未知*) ps="$(probe_size "$SRC_URL" 2>/dev/null)" && [ -n "$ps" ] && SRC_SIZE_HINT="$ps";;
+    esac
+    sub "文件大小   ${SRC_SIZE_HINT:-未知}"
+  fi
+
+  # ---------------------------------------------------------------- 4
+  step "下载服务端文件"
   mkdir -p "$DIR" || die "无法创建目录 $DIR"
   cd "$DIR" || die "无法进入目录 $DIR"
+  sub "保存到     ${DIR}/"
+
+  local T0 T1
+  T0=$(date +%s)
 
   if [ "$IS_INSTALLER" = 1 ]; then
-    info "下载安装器"
-    fetch "$SRC_URL" "installer.jar" || die "下载失败：$SRC_URL"
-    ls -l installer.jar | awk '{print "   大小:", $5, "字节"}'
-    info "运行安装器（首次较慢，需要下载大量依赖库）"
-    java -jar installer.jar --installServer || die "安装器执行失败，请查看上方输出"
+    sub "正在下载安装器..."
+    fetch "$SRC_URL" "installer.jar" progress || die "下载失败。
+     地址: ${SRC_URL}
+     排查: 1) 网络是否可用  2) 加 --mirror always 走国内镜像  3) 用 --dry-run 拿到地址后手动下载"
+    sub "安装器大小 $(file_size installer.jar)"
+    is_jar installer.jar || die "下载到的安装器不是有效的 jar（开头不是 PK），多半被网络拦截了。
+     地址: ${SRC_URL}"
+    printf '\n'
+    warn_hint "接下来运行安装器，需要下载几十 MB 依赖库，慢是正常的，请勿中断"
+    java -jar installer.jar --installServer || die "安装器执行失败，请查看上方输出。
+     常见原因: Java 版本不符 / 网络中断 / 磁盘空间不足"
     ok "安装器执行完成"
   else
-    info "下载服务端 ${SRC_NAME}"
-    fetch "$SRC_URL" "server.jar" || die "下载失败：$SRC_URL"
-    local sz; sz="$(wc -c < server.jar 2>/dev/null || echo 0)"
-    if [ "$sz" -lt 1000000 ]; then
-      die "下载到的文件只有 ${sz} 字节，明显不是服务端 jar（可能被拦截成了错误页面）。
-     请检查网络，或换用国内镜像：--mirror always"
+    sub "正在下载 ${SRC_NAME} ..."
+    [ "$(tty_progress)" = "1" ] || hint "当前输出不是终端，不显示进度条属正常"
+    fetch "$SRC_URL" "server.jar" progress || die "下载失败。
+     地址: ${SRC_URL}
+     排查: 1) 网络是否可用  2) 加 --mirror always 走国内镜像  3) 用 --dry-run 拿到地址后手动下载"
+    T1=$(( $(date +%s) - T0 ))
+    sub "已下载     $(file_size server.jar)   耗时 ${T1} 秒"
+
+    if ! is_jar server.jar; then
+      die "下载到的不是有效的 jar 文件（$(file_size server.jar)，开头不是 PK）。
+     多半是被网络拦截成了错误页面，或下载被中途截断。
+     处理: 加 --mirror always 重试，或手动打开这个地址下载后放进 ${DIR}/
+           ${SRC_URL}"
     fi
-    ok "下载完成（$(echo "scale=1; $sz/1048576" | bc 2>/dev/null || echo "?") MB）"
 
     if [ -n "$SRC_SHA" ]; then
-      info "校验完整性（${SRC_ALGO}）"
+      sub "校验 ${SRC_ALGO} ..."
       local got; got="$(digest_of "$SRC_ALGO" server.jar)"
       if [ -n "$got" ] && [ "$got" = "$SRC_SHA" ]; then
         ok "${SRC_ALGO} 校验通过"
-      elif [ -n "$got" ] && [ -n "$SRC_SHA" ]; then
-        warn "${SRC_ALGO} 不一致（上游可能已更新构建，通常不影响使用）"
-        printf '%s\n' "   期望: $SRC_SHA" "   实际: $got" >&2
+      elif [ -n "$got" ]; then
+        warn "${SRC_ALGO} 与官方值不一致（上游可能已更新构建，通常不影响使用）"
+        printf '   期望: %s\n   实际: %s\n' "$SRC_SHA" "$got"
+      else
+        hint "系统里没有 sha256sum/shasum/openssl，跳过校验"
       fi
+    else
+      hint "该下载源未提供校验值，跳过校验"
     fi
   fi
 
-  # EULA
+  # ---------------------------------------------------------------- 5
+  step "写入配置"
   printf 'eula=true\n' > eula.txt
   ok "已同意 EULA（eula.txt）"
+  hint "Minecraft 服务端必须显式同意许可协议才能启动，这一步是自动完成的"
 
-  # server.properties：已存在则不覆盖，避免冲掉玩家的自定义配置
   if [ -f server.properties ]; then
-    info "server.properties 已存在，保留原配置（只确保端口与内存相关项）"
+    ok "server.properties 已存在，保留你的原有配置"
+    hint "需要改端口或人数，直接编辑 ${DIR}/server.properties"
   else
     cat > server.properties <<PROP
 motd=${MOTD}
@@ -523,9 +712,13 @@ difficulty=easy
 white-list=false
 PROP
     ok "已写入 server.properties"
+    sub "motd=${MOTD}"
+    sub "端口=${PORT}  正版验证=${ONLINE_MODE}  人数上限=${MAX_PLAYERS}  视距=${VIEW_DIST}"
+    hint "卡顿就调小 view-distance（视野）和 simulation-distance（模拟距离），这两项最吃性能"
   fi
 
-  # 启动脚本
+  # ---------------------------------------------------------------- 6
+  step "生成启动脚本"
   local MF; MF="$(mem_flag "$MEM")"
   # -XX:+UnlockExperimentalVMOptions 必须排在所有 -XX 之前：
   # G1NewSizePercent / G1MaxNewSizePercent 被 JVM 视为实验性选项，
@@ -538,12 +731,20 @@ PROP
 -XX:SurvivorRatio=32 -XX:MaxTenuringThreshold=1 \
 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
 
-  # 部署前本地校验一次，不通过就当场降级，避免交给用户一个起不来的脚本
-  if ! java $FLAGS -version >/dev/null 2>&1; then
+  sub "校验 JVM 参数是否被当前 Java 接受 ..."
+  if java $FLAGS -version >/dev/null 2>&1; then
+    ok "调优参数可用（Aikar 方案，能明显减少卡顿）"
+  else
     warn "当前 JVM 不接受这套调优参数，自动降级为保守参数"
     FLAGS="-Xms${MF} -Xmx${MF} -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-    java $FLAGS -version >/dev/null 2>&1 || FLAGS="-Xms${MF} -Xmx${MF}"
+    if java $FLAGS -version >/dev/null 2>&1; then
+      ok "已降级为保守参数"
+    else
+      FLAGS="-Xms${MF} -Xmx${MF}"
+      hint "连保守参数也不支持，将只用内存参数启动"
+    fi
   fi
+  sub "内存参数   -Xms${MF} -Xmx${MF}"
 
   if [ "$IS_INSTALLER" = 1 ]; then
     cat > start.sh <<'SH'
@@ -565,23 +766,25 @@ SH
     } > start.sh
   fi
   chmod +x start.sh 2>/dev/null
-  ok "已生成启动脚本 start.sh"
+  ok "已生成 ${DIR}/start.sh"
+  hint "以后开服只需执行  cd ${DIR} && ./start.sh"
 
-  hr
-  ok "${C_BOLD}部署完成${C_0}  目录: ${C_BOLD}${DIR}${C_0}"
-  printf '%s\n' "   启动：  cd ${DIR} && ./start.sh"
-  printf '%s\n' "   关闭：  在服务器窗口输入 ${C_BOLD}stop${C_0} 回车（不要直接关窗口）"
-  printf '%s\n' "   修改配置：${DIR}/server.properties"
-  hr
+  print_summary
 
-  if [ "$DO_START" = 1 ]; then
-    info "正在启动服务器，首次会生成世界，请耐心等待..."
-    info "看到 ${C_BOLD}Done (xx.xxs)! For help, type \"help\"${C_0} 就是启动成功"
-    hr
-    exec ./start.sh
-  else
-    info "按参数要求不自动启动。需要时执行：cd ${DIR} && ./start.sh"
+  # ---------------------------------------------------------------- 7
+  if [ "$DO_START" != 1 ]; then
+    step "已按要求跳过启动"
+    printf '%s\n' "   需要开服时执行：  cd ${DIR} && ./start.sh"
+    printf '\n'
+    return 0
   fi
+
+  step "启动服务器"
+  warn_hint "首次启动要生成世界，通常 1~3 分钟，日志刷得慢是正常的，请勿中断"
+  printf '%s\n' "   ${C_D}成功标志：出现  Done (xx.xxs)! For help, type \"help\"${C_0}"
+  printf '%s\n' "   ${C_D}安全关服：在当前窗口输入  stop  回车（直接关窗口可能损坏世界）${C_0}"
+  printf '\n'
+  exec ./start.sh
 }
 
 # ------------------------------- 组合列表 -----------------------------------
@@ -620,7 +823,12 @@ PY
 
 # ------------------------------- 主流程 -------------------------------------
 if [ "${LIST_ONLY:-0}" = 1 ]; then list_combos; exit 0; fi
-if [ "$ASK" = 1 ] || { [ $# -eq 0 ] && [ ! -t 0 ] && [ -r /dev/tty ]; }; then
+# 判断 /dev/tty 是否真能打开（仅 -r 判断不够，会通过却读不了）
+HAS_TTY=0
+if [ -r /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then HAS_TTY=1; fi
+
+# 只有「一个参数都没给」或显式 --ask，并且终端可用时才进向导
+if [ "$ASK" = 1 ] || { [ "${ARGS_GIVEN:-0}" = 0 ] && [ "$HAS_TTY" = 1 ]; }; then
   hr
   printf '%s\n' "${C_BOLD}Minecraft 服务器部署向导${C_0}（直接回车使用方括号里的默认值）"
   hr
