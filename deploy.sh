@@ -39,7 +39,7 @@ hr(){   printf '%s\n' "${C_D}─────────────────
 
 # ------------------------------- 进度提示 -----------------------------------
 # 运行时的分步进度，让用户随时知道「做到哪了、还要多久、卡住该怎么办」
-TOTAL_STEPS=7
+TOTAL_STEPS=8
 STEP=0
 step(){
   STEP=$((STEP+1))
@@ -121,7 +121,7 @@ print_plan(){
   hr
   printf '%s\n' "本次共 ${TOTAL_STEPS} 步："
   printf '%s\n' "  1 检查运行环境    2 准备 Java      3 解析下载地址    4 下载服务端"
-  printf '%s\n' "  5 写入配置        6 生成启动脚本   7 启动服务器"
+  printf '%s\n' "  5 安装插件与模组  6 写入配置      7 生成启动脚本    8 启动服务器"
   printf '%s\n' "${C_D}  视网速约 1~5 分钟。中途 Ctrl+C 可安全中断，不会留下坏文件${C_0}"
 }
 
@@ -155,6 +155,13 @@ ASK=0
 USE_MIRROR="auto"      # auto | always | never
 NO_JAVA=0
 
+# 插件与模组（默认值必须在参数解析之前，否则会把用户传入的值覆盖掉）
+PLUGINS=""
+MODS=""
+PICK=0
+LIST_PLUGINS=0
+LIST_MODS=0
+
 # ------------------------------- 参数解析 -----------------------------------
 usage(){
 cat <<'EOF'
@@ -174,6 +181,11 @@ cat <<'EOF'
   --no-java           跳过 Java 检查与安装（已自行装好时使用）
   --dry-run           只解析并打印将要执行的步骤，不安装、不下载
   --ask               强制进入交互式向导
+  --plugins <列表>    安装插件，逗号分隔，如 essentialsx,luckperms,worldedit
+  --mods <列表>       安装模组，逗号分隔，如 lithium,ferrite-core,jei
+  --pick              交互式挑选插件与模组（列出候选让你选编号）
+  --list-plugins      列出全部候选插件后退出
+  --list-mods         列出全部候选模组后退出
   -l, --list          列出全部可用「版本 × 服务端」组合后退出
   -h, --help          显示本帮助
 
@@ -206,6 +218,11 @@ while [ $# -gt 0 ]; do
     --no-java)       NO_JAVA=1; shift;;
     --dry-run)       DRY_RUN=1; shift;;
     --ask)           ASK=1; shift;;
+    --plugins)       PLUGINS="${2:-}"; shift 2;;
+    --mods)          MODS="${2:-}"; shift 2;;
+    --pick)          PICK=1; shift;;
+    --list-plugins)  LIST_PLUGINS=1; shift;;
+    --list-mods)     LIST_MODS=1; shift;;
     -l|--list)       LIST_ONLY=1; shift;;
     -h|--help)       usage; exit 0;;
     *) die "未知参数: $1（用 --help 查看用法）";;
@@ -307,6 +324,200 @@ fetch(){
     sleep 2
   done
   return 1
+}
+
+# ============================ 插件与模组 ====================================
+# 内容来源：Modrinth 官方 API —— 按「加载器 + MC 版本」实时匹配可用文件，
+# 不写死下载地址，避免上游更新后 404。
+
+CATALOG_FILE=""
+
+CATALOG_URLS="
+https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/catalog.json
+https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main/catalog.json
+https://ghproxy.net/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/catalog.json
+https://gh-proxy.com/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/catalog.json"
+
+fetch_catalog(){
+  [ -n "$CATALOG_FILE" ] && [ -s "$CATALOG_FILE" ] && return 0
+  # 本地目录覆盖（便于离线使用与测试）：MC_CATALOG=/path/to/catalog.json
+  if [ -n "${MC_CATALOG:-}" ] && [ -s "$MC_CATALOG" ]; then CATALOG_FILE="$MC_CATALOG"; return 0; fi
+  local f="${TMPDIR:-/tmp}/mc-catalog.$$.json" base
+  : > "$f"
+  for base in $CATALOG_URLS; do
+    if fetch "$base" "$f" 2>/dev/null && [ -s "$f" ]; then CATALOG_FILE="$f"; return 0; fi
+  done
+  return 1
+}
+
+# 从 catalog.json 取出某类条目（不依赖 python3 / jq）
+catalog_items(){
+  local kind="$1" arr
+  case "$kind" in
+    plugins) arr="$(sed -n 's/.*"plugins":\[//; s/\],"mods":\[.*//p' "$CATALOG_FILE" | head -1)";;
+    mods)    arr="$(sed -n 's/.*"mods":\[//;   s/\]}*$//p'       "$CATALOG_FILE" | head -1)";;
+    *) return 1;;
+  esac
+  [ -n "$arr" ] || return 1
+  printf '%s\n' "$arr" | sed 's/},{/\n/g' | while IFS= read -r item; do
+    local slug title cat side
+    slug="$(printf '%s' "$item" | sed -n 's/.*"slug":"\([^"]*\)".*/\1/p')"
+    title="$(printf '%s' "$item" | sed -n 's/.*"title":"\([^"]*\)".*/\1/p')"
+    cat="$(printf '%s' "$item" | sed -n 's/.*"cat":"\([^"]*\)".*/\1/p')"
+    side="$(printf '%s' "$item" | sed -n 's/.*"side":"\([^"]*\)".*/\1/p')"
+    [ -n "$slug" ] && printf '%s\t%s\t%s\t%s\n' "$slug" "$title" "$cat" "$side"
+  done
+}
+
+# 只列出候选，供 --list-plugins / --list-mods 使用
+show_catalog(){
+  local kind="$1" label="$2" n=0 lastcat="" slug title cat side
+  if ! fetch_catalog; then
+    warn "无法获取候选目录（需要联网访问仓库）"
+    return 1
+  fi
+  hr
+  printf '%s\n' "${C_BOLD}可选${label}（共 $(catalog_items "$kind" | wc -l) 个）${C_0}"
+  hr
+  while IFS="$(printf '\t')" read -r slug title cat side; do
+    [ -z "$slug" ] && continue
+    n=$((n+1))
+    if [ "$cat" != "$lastcat" ]; then printf '\n  %s\n' "${C_B}【${cat}】${C_0}"; lastcat="$cat"; fi
+    local mark=""
+    [ "$side" = "both" ]   && mark=" ★需客户端"
+    [ "$side" = "client" ] && mark=" ⚠仅客户端"
+    printf '  %2d) %-24s %s%s\n' "$n" "$slug" "$title" "$mark"
+  done <<EOF
+$(catalog_items "$kind")
+EOF
+  printf '\n%s\n' "${C_D}用法：--${kind} slug1,slug2   多个用逗号隔开${C_0}"
+}
+
+# 交互式挑选，输出逗号分隔的 slug
+pick_items(){
+  local kind="$1" label="$2"
+  if ! fetch_catalog; then
+    warn "无法获取候选目录（需要联网），请改用 --${kind} slug1,slug2 直接指定"
+    printf ''
+    return 1
+  fi
+  if [ "${HAS_TTY:-0}" != 1 ]; then
+    warn "当前没有可交互的终端，请用 --${kind} slug1,slug2 指定"
+    printf ''
+    return 1
+  fi
+  local lines; lines="$(catalog_items "$kind")"
+  [ -n "$lines" ] || { warn "目录内容为空"; printf ''; return 1; }
+
+  hr
+  printf '%s\n' "${C_BOLD}挑选${label}${C_0}"
+  printf '%s\n' "${C_D}  输入编号，多个用逗号隔开；all 全选，none 不装${C_0}"
+  printf '%s\n' "${C_D}  ★ 需要客户端也装模组    ⚠ 仅客户端，装在服务端没用${C_0}"
+  local n=0 lastcat="" slug title cat side mark
+  while IFS="$(printf '\t')" read -r slug title cat side; do
+    [ -z "$slug" ] && continue
+    n=$((n+1))
+    if [ "$cat" != "$lastcat" ]; then printf '\n  %s\n' "${C_B}【${cat}】${C_0}"; lastcat="$cat"; fi
+    mark=""
+    [ "$side" = "both" ]   && mark=" ★需客户端"
+    [ "$side" = "client" ] && mark=" ⚠仅客户端"
+    printf '  %2d) %-24s %s%s\n' "$n" "$slug" "$title" "$mark"
+  done <<EOF
+$lines
+EOF
+
+  printf '%s' "${C_BOLD}> ${C_0}"
+  local ans; ans="$( { read -r _a < /dev/tty && printf '%s' "$_a"; } 2>/dev/null )" || ans=""
+  case "$ans" in
+    ""|none|no|n) printf ''; return 0;;
+    all|a) printf '%s' "$lines" | cut -f1 | paste -sd, -; return 0;;
+  esac
+  local out="" idx=0 want
+  for want in $(printf '%s' "$ans" | tr ',' ' '); do
+    idx=0
+    while IFS="$(printf '\t')" read -r slug title cat side; do
+      [ -z "$slug" ] && continue
+      idx=$((idx+1))
+      [ "$idx" = "$want" ] && { out="${out:+$out,}$slug"; break; }
+    done <<EOF
+$lines
+EOF
+  done
+  printf '%s' "$out"
+}
+
+# 把空格分隔的列表编码成 URL 里的 ["a","b"]
+enc_arr(){
+  local out="%5B" first=1 x
+  for x in $1; do
+    [ "$first" = 1 ] || out="$out%2C"; first=0
+    out="$out%22$x%22"
+  done
+  printf '%s' "$out%5D"
+}
+
+# 当前加载器对应的 Modrinth 加载器标签
+modrinth_loaders(){
+  case "$LOADER" in
+    paper)    printf '%s' "paper spigot bukkit";;
+    fabric)   printf '%s' "fabric";;
+    forge)    printf '%s' "forge";;
+    neoforge) printf '%s' "neoforge";;
+    *)        printf '';;
+  esac
+}
+
+resolve_modrinth(){
+  fetch_text "https://api.modrinth.com/v2/project/$1/version?loaders=$(enc_arr "$2")&game_versions=$(enc_arr "$3")"
+}
+
+# 下载并安装一批内容
+install_contents(){
+  local kind="$1" list="$2" target="$3" label="$4"
+  local loaders; loaders="$(modrinth_loaders)"
+  local slug json url name env sz ok=0 skip=0
+
+  [ -z "$list" ] && return 0
+  if [ -z "$loaders" ]; then
+    warn "${LOADER} 不支持${label}，已跳过：${list}"
+    return 0
+  fi
+
+  mkdir -p "$target"
+  sub "目标目录   ${target}/"
+
+  for slug in $(printf '%s' "$list" | tr ',' ' '); do
+    [ -z "$slug" ] && continue
+    json="$(resolve_modrinth "$slug" "$loaders" "$VERSION")"
+    if [ -z "$json" ] || [ "$json" = "[]" ]; then
+      warn "${slug}：没有适配 ${LOADER} + MC ${VERSION} 的版本，已跳过"
+      skip=$((skip+1)); continue
+    fi
+    # 注意：jget 的第二个参数才是 JSON 本体，不能写成管道
+    url="$(jget url "$json")"
+    name="$(jget filename "$json")"
+    env="$(jget environment "$json")"
+    if [ -z "$url" ] || [ -z "$name" ]; then
+      warn "${slug}：解析文件地址失败，已跳过"
+      skip=$((skip+1)); continue
+    fi
+    if [ "$env" = "client_only" ]; then
+      warn "${slug}：仅客户端内容，装在服务端没有作用，已跳过"
+      skip=$((skip+1)); continue
+    fi
+    sub "下载 ${slug} → ${name}"
+    if fetch "$url" "${target}/${name}" quiet && is_jar "${target}/${name}"; then
+      sz="$(file_size "${target}/${name}")"
+      ok "  ${name}  (${sz})"
+      ok=$((ok+1))
+    else
+      warn "${slug} 下载失败或文件无效，已跳过"
+      rm -f "${target}/${name}"
+      skip=$((skip+1))
+    fi
+  done
+
+  printf '   结果       成功 %d 个，跳过 %d 个\n' "$ok" "$skip"
 }
 
 # curl 的可用性是整个流程的前提：解析下载地址、下载服务端全靠它。
@@ -642,6 +853,8 @@ do_install(){
     printf '%s\n' "   内存参数  : -Xms$(mem_flag "$MEM") -Xmx$(mem_flag "$MEM")"
     printf '%s\n' "   安装目录  : ${DIR}"
     printf '%s\n' "   端口/视距 : ${PORT} / ${VIEW_DIST}（模拟距离 ${SIM_DIST}）"
+    printf '%s\n' "   插件       : ${PLUGINS:-（无）}"
+    printf '%s\n' "   模组       : ${MODS:-（无）}"
     printf '\n%s\n' "${C_D}以上地址均可直接复制到下载工具里手动下载。去掉 --dry-run 即真正开始部署。${C_0}"
     exit 0
   fi
@@ -733,6 +946,37 @@ do_install(){
   fi
 
   # ---------------------------------------------------------------- 5
+  step "安装插件与模组"
+  if [ -z "$PLUGINS" ] && [ -z "$MODS" ]; then
+    sub "未选择任何插件或模组"
+    hint "想要的话用 --pick 交互挑选，或 --plugins essentialsx,luckperms 直接指定"
+  else
+    case "$LOADER" in
+      paper)
+        if [ -n "$MODS" ]; then
+          warn "Paper 不能加载 Fabric / Forge 模组，--mods 已忽略"
+          hint "想要模组请改用 --loader fabric（轻量）或 --loader neoforge"
+        fi
+        install_contents plugins "$PLUGINS" "${DIR}/plugins" "插件"
+        ;;
+      vanilla)
+        warn "原版服务端既不支持插件也不支持模组，已跳过"
+        hint "要插件改用 --loader paper；要模组改用 --loader fabric 或 neoforge"
+        ;;
+      fabric|forge|neoforge)
+        if [ -n "$PLUGINS" ]; then
+          warn "Bukkit 插件只能在 Paper 上运行，--plugins 已忽略"
+          hint "要插件请改用 --loader paper"
+        fi
+        install_contents mods "$MODS" "${DIR}/mods" "模组"
+        ;;
+    esac
+    if [ -n "$PLUGINS" ] || [ -n "$MODS" ]; then
+      hint "换版本或换加载器后重跑本脚本会重新匹配适配的文件"
+    fi
+  fi
+
+  # ---------------------------------------------------------------- 6
   step "写入配置"
   printf 'eula=true\n' > eula.txt
   ok "已同意 EULA（eula.txt）"
@@ -761,7 +1005,7 @@ PROP
     hint "卡顿就调小 view-distance（视野）和 simulation-distance（模拟距离），这两项最吃性能"
   fi
 
-  # ---------------------------------------------------------------- 6
+  # ---------------------------------------------------------------- 7
   step "生成启动脚本"
   local MF; MF="$(mem_flag "$MEM")"
   # -XX:+UnlockExperimentalVMOptions 必须排在所有 -XX 之前：
@@ -815,7 +1059,7 @@ SH
 
   print_summary
 
-  # ---------------------------------------------------------------- 7
+  # ---------------------------------------------------------------- 8
   if [ "$DO_START" != 1 ]; then
     step "已按要求跳过启动"
     printf '%s\n' "   需要开服时执行：  cd ${DIR} && ./start.sh"
@@ -867,6 +1111,8 @@ PY
 
 # ------------------------------- 主流程 -------------------------------------
 if [ "${LIST_ONLY:-0}" = 1 ]; then list_combos; exit 0; fi
+if [ "${LIST_PLUGINS:-0}" = 1 ]; then show_catalog plugins 插件; exit 0; fi
+if [ "${LIST_MODS:-0}" = 1 ]; then show_catalog mods 模组; exit 0; fi
 # 判断 /dev/tty 是否真能打开（仅 -r 判断不够，会通过却读不了）
 HAS_TTY=0
 if [ -r /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then HAS_TTY=1; fi
@@ -883,6 +1129,7 @@ if [ "$ASK" = 1 ] || { [ "${ARGS_GIVEN:-0}" = 0 ] && [ "$HAS_TTY" = 1 ]; }; then
   MEM="$(ask '分配内存 GB (如 2):' "${MEM:-2}")"
   PORT="$(ask '端口:' "$PORT")"
   MOTD="$(ask '服务器名称(motd):' "Minecraft Server ${VERSION}")"
+  if [ "$(ask '要交互式挑选插件/模组吗? (y/N):' 'N')" = "y" ]; then PICK=1; fi
   hr
 fi
 
@@ -891,5 +1138,13 @@ case "$LOADER" in paper|vanilla|fabric|neoforge|forge) ;; *) die "--loader 只�
 [ -n "$VERSION" ] || die "--version 不能为空"
 auto_params
 NEED_JAVA="$(java_for "$VERSION")"
+
+# 交互式挑选插件与模组
+if [ "${PICK:-0}" = 1 ]; then
+  [ -z "$PLUGINS" ] && PLUGINS="$(pick_items plugins 插件)"
+  case "$LOADER" in
+    fabric|forge|neoforge) [ -z "$MODS" ] && MODS="$(pick_items mods 模组)";;
+  esac
+fi
 
 do_install
