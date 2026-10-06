@@ -28,7 +28,7 @@ param(
 
     [double]$Mem = 0,            # 0 = 自动按物理内存取 1/4
 
-    [int]$Port = 25565,
+    [int]$Port = 0,          # 0 = 自动静默探测一个空闲端口
 
     [string]$Motd = '',
 
@@ -146,6 +146,20 @@ function Install-Modrinth {
         } catch { Write-Warn2 "$sl 下载失败，已跳过"; $skip++ }
     }
     Write-Sub "结果       成功 $ok 个，跳过 $skip 个"
+}
+
+# ------------------------- 端口自动探测 --------------------------------------
+# 用 .NET 的 TcpListener 实际尝试绑定，最准确；被占用就向后顺延
+if ($Port -le 0) {
+    $found = 0
+    for ($p = 25565; $p -le 25765; $p++) {
+        try {
+            $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $p)
+            $l.Start(); $l.Stop()
+            $found = $p; break
+        } catch { }
+    }
+    if ($found -gt 0) { $Port = $found } else { $Port = 25565 }
 }
 
 # ------------------------- 自动参数 ------------------------------------------
