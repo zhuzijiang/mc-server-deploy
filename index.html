@@ -661,8 +661,14 @@ function recommend(){
     why:`${m} GB 属于宽裕配置，可以上大型整合包。NeoForge 1.21.1 是当前新整合包的主流选择；若你要玩的老整合包基于 Forge，改选 Forge 1.20.1。` };
 }
 
+// Java 只接受整数堆大小：-Xms2.5G 会直接报 Invalid initial heap size，小数必须换算成 MB
+function memFlag(mem){
+  return (mem % 1 === 0) ? (mem + "G") : (Math.round(mem * 1024) + "M");
+}
 function jvmFlags(mem){
-  return ["-Xms"+mem+"G","-Xmx"+mem+"G",
+  return ["-Xms"+memFlag(mem),"-Xmx"+memFlag(mem),
+    // 必须放在所有 -XX 之前：G1NewSizePercent 等属实验性选项，未解锁会直接启动失败
+    "-XX:+UnlockExperimentalVMOptions",
     "-XX:+UseG1GC","-XX:+ParallelRefProcEnabled","-XX:MaxGCPauseMillis=200",
     "-XX:+DisableExplicitGC","-XX:+AlwaysPreTouch","-XX:G1NewSizePercent=30",
     "-XX:G1MaxNewSizePercent=40","-XX:G1HeapRegionSize=8M","-XX:G1ReservePercent=20",
@@ -900,7 +906,17 @@ function step4(){
   o.push("cat > start.sh <<'SH'");
   o.push(shebang);
   o.push('cd "$(dirname "$0")"');
-  o.push(isInst ? "exec ./run.sh nogui" : "exec java " + jvmFlags(S.mem) + " -jar server.jar nogui");
+  if (isInst){
+    o.push("exec ./run.sh nogui");
+  } else {
+    o.push('JVM_FLAGS="' + jvmFlags(S.mem) + '"');
+    o.push("# 参数自检：某些 JVM 不认部分调优参数，退回保守值而不是直接启动失败");
+    o.push('if ! java $JVM_FLAGS -version >/dev/null 2>&1; then');
+    o.push('  echo "[提示] 当前 JVM 不支持调优参数，已自动改用保守参数"');
+    o.push('  JVM_FLAGS="-Xms' + memFlag(S.mem) + ' -Xmx' + memFlag(S.mem) + '"');
+    o.push('fi');
+    o.push("exec java $JVM_FLAGS -jar server.jar nogui");
+  }
   o.push("SH");
   o.push("chmod +x start.sh");
   o.push("");

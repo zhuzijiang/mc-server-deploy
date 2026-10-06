@@ -527,12 +527,23 @@ PROP
 
   # 启动脚本
   local MF; MF="$(mem_flag "$MEM")"
-  local FLAGS="-Xms${MF} -Xmx${MF} -XX:+UseG1GC -XX:+ParallelRefProcEnabled \
+  # -XX:+UnlockExperimentalVMOptions 必须排在所有 -XX 之前：
+  # G1NewSizePercent / G1MaxNewSizePercent 被 JVM 视为实验性选项，
+  # 未解锁会直接报 "VM option ... is experimental" 并拒绝启动（Java 8/11/17/21 都是如此）
+  local FLAGS="-Xms${MF} -Xmx${MF} -XX:+UnlockExperimentalVMOptions \
+-XX:+UseG1GC -XX:+ParallelRefProcEnabled \
 -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch \
 -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M \
 -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:InitiatingHeapOccupancyPercent=15 \
 -XX:SurvivorRatio=32 -XX:MaxTenuringThreshold=1 \
 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
+
+  # 部署前本地校验一次，不通过就当场降级，避免交给用户一个起不来的脚本
+  if ! java $FLAGS -version >/dev/null 2>&1; then
+    warn "当前 JVM 不接受这套调优参数，自动降级为保守参数"
+    FLAGS="-Xms${MF} -Xmx${MF} -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+    java $FLAGS -version >/dev/null 2>&1 || FLAGS="-Xms${MF} -Xmx${MF}"
+  fi
 
   if [ "$IS_INSTALLER" = 1 ]; then
     cat > start.sh <<'SH'
@@ -544,7 +555,13 @@ SH
     {
       printf '#!/usr/bin/env bash\n'
       printf 'cd "$(dirname "$0")" || exit 1\n'
-      printf 'exec java %s -jar server.jar nogui\n' "$FLAGS"
+      printf 'JVM_FLAGS="%s"\n' "$FLAGS"
+      printf '# 再自检一次：换 Java 版本后若参数不被支持，退回保守值而不是直接失败\n'
+      printf 'if ! java $JVM_FLAGS -version >/dev/null 2>&1; then\n'
+      printf '  echo "[提示] 当前 JVM 不支持调优参数，已自动改用保守参数"\n'
+      printf '  JVM_FLAGS="-Xms%s -Xmx%s"\n' "$MF" "$MF"
+      printf 'fi\n'
+      printf 'exec java $JVM_FLAGS -jar server.jar nogui\n'
     } > start.sh
   fi
   chmod +x start.sh 2>/dev/null

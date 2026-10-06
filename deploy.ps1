@@ -117,12 +117,23 @@ if (-not $Motd) { $Motd = "Minecraft Server $Version" }
 # Java 不接受小数堆大小，统一换算成 MB
 if ($Mem -eq [math]::Floor($Mem)) { $memFlag = "$([int]$Mem)G" } else { $memFlag = "$([int]($Mem * 1024))M" }
 
-$jarFlags = "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 " +
-            "-XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 " +
-            "-XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 " +
-            "-XX:G1HeapWastePercent=5 -XX:InitiatingHeapOccupancyPercent=15 " +
+# -XX:+UnlockExperimentalVMOptions 必须排在所有 -XX 之前：
+# G1NewSizePercent / G1MaxNewSizePercent 属实验性选项，未解锁会直接拒绝启动
+$jarFlags = "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:+ParallelRefProcEnabled " +
+            "-XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch " +
+            "-XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M " +
+            "-XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:InitiatingHeapOccupancyPercent=15 " +
             "-XX:SurvivorRatio=32 -XX:MaxTenuringThreshold=1 " +
             "-Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
+
+# 部署前先校验参数，不通过就降级，避免生成一个起不来的脚本
+& java "-Xms$memFlag" "-Xmx$memFlag" @($jarFlags.Split(' ')) -version *> $null
+if ($LASTEXITCODE -ne 0) {
+    Write-Warn2 "当前 JVM 不接受这套调优参数，自动降级为保守参数"
+    $jarFlags = "-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+    & java "-Xms$memFlag" "-Xmx$memFlag" @($jarFlags.Split(' ')) -version *> $null
+    if ($LASTEXITCODE -ne 0) { $jarFlags = "" }
+}
 
 Write-Hr
 Write-Info "环境 Windows   服务端 $Loader $Version   需要 Java $needJava   内存 ${Mem}G"
