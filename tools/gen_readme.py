@@ -13,6 +13,27 @@ REPO = "mc-server-deploy"
 RAW = f"https://raw.githubusercontent.com/{OWNER}/{REPO}/main"
 
 d = json.load(open(os.path.join(ROOT, 'data.json'), encoding='utf-8'))
+cat = json.load(open(os.path.join(ROOT, 'catalog.json'), encoding='utf-8'))
+
+def cat_table(items):
+    groups = []
+    for it in items:
+        g = next((x for x in groups if x[0] == it['cat']), None)
+        if not g:
+            g = (it['cat'], []); groups.append(g)
+        g[1].append(it)
+    out = []
+    for name, its in groups:
+        cells = []
+        for it in its:
+            mark = {'both': ' ★', 'client': ' ⚠'}.get(it['side'], '')
+            cells.append(f"`{it['slug']}`{mark}")
+        out.append(f"| {name} | " + "、".join(cells) + " |")
+    return "\n".join(out)
+
+PLUGIN_TABLE = cat_table(cat['plugins'])
+MOD_TABLE = cat_table(cat['mods'])
+N_PLUG = len(cat['plugins']); N_MOD = len(cat['mods'])
 vs = d['versions']
 LO = [("paper", "Paper"), ("vanilla", "原版"), ("fabric", "Fabric"),
       ("neoforge", "NeoForge"), ("forge", "Forge")]
@@ -127,8 +148,51 @@ curl -fsSL https://cdn.jsdelivr.net/gh/{OWNER}/{REPO}@main/deploy.sh | bash -s -
 | `--no-java` | 跳过 Java 检查与安装 | — |
 | `--dry-run` | 只解析地址并打印计划 | — |
 | `--ask` | 强制进入交互式向导 | — |
+| `--plugins <列表>` | 安装插件（逗号分隔），仅 Paper 支持 | — |
+| `--mods <列表>` | 安装模组（逗号分隔），Fabric / NeoForge / Forge | — |
+| `--pick` | 交互式挑选插件与模组 | — |
+| `--list-plugins` / `--list-mods` | 列出全部候选后退出 | — |
 | `-l, --list` | 列出全部可用「版本 × 服务端」组合 | — |
 | `-h, --help` | 显示帮助 | — |
+
+---
+
+## 插件与模组
+
+内置 **{N_PLUG} 个常用插件** 和 **{N_MOD} 个常用模组**目录，元数据取自 Modrinth（按下载量筛选），
+安装时按你选的**加载器 + MC 版本**实时匹配可用文件，不写死地址。
+
+```bash
+# 装插件（仅 Paper 支持）
+curl -fsSL {RAW}/deploy.sh | bash -s -- --loader paper --version 1.21.11 --mem 2 --plugins essentialsx,luckperms,coreprotect
+
+# 装模组（Fabric / NeoForge / Forge）
+curl -fsSL {RAW}/deploy.sh | bash -s -- --loader fabric --version 1.21.1 --mem 4 --mods lithium,ferrite-core,jei
+
+# 交互式挑选：列出候选让你输编号
+curl -fsSL {RAW}/deploy.sh | bash -s -- --pick
+
+# 先看看有哪些可选
+curl -fsSL {RAW}/deploy.sh | bash -s -- --list-plugins
+curl -fsSL {RAW}/deploy.sh | bash -s -- --list-mods
+```
+
+脚本会自动跳过**仅客户端**的内容（装在服务端没有作用），并把文件放进 `plugins/` 或 `mods/`。
+标记说明：**★** 需要客户端也装同样的模组；**⚠** 仅客户端，服务端装了没用。
+
+### 插件（{N_PLUG} 个）
+
+| 分类 | 内容 |
+|---|---|
+{PLUGIN_TABLE}
+
+### 模组（{N_MOD} 个）
+
+| 分类 | 内容 |
+|---|---|
+{MOD_TABLE}
+
+> 插件只能在 Paper 上运行；模组需要 Fabric / NeoForge / Forge。选错时脚本会提示并跳过，不会静默失败。
 
 ---
 
