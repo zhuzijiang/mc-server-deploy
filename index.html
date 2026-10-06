@@ -427,6 +427,14 @@ echo "备份完成: $(ls -1 "$HOME/mc-backups" | wc -l) 份"</pre>
     <thead><tr><th>报错关键字</th><th>原因</th><th>解决</th></tr></thead>
     <tbody>
       <tr><td>UnsupportedClassVersionError</td><td>Java 版本低于该 MC 版本要求</td><td>按第 1 步表格装对应 Java</td></tr>
+      <tr><td>CANNOT LINK EXECUTABLE "curl"<br><span class="mono">cannot locate symbol "SSL_set_quic_tls_early_data_enabled"</span></td>
+        <td>Termux 的 libcurl 与 openssl 版本不同步。多见于单独执行 <code>pkg install curl</code>，
+          libcurl 升级了而 openssl 没跟上</td>
+        <td>① 先直接重跑，常常只是升级过程中的瞬时状态，几秒后自愈<br>
+          ② 仍不行：<code>pkg upgrade -y</code><br>
+          ③ 若 pkg 也报同样错误（apt 同样依赖 libcurl），用手机浏览器到
+          <code>packages.termux.dev/apt/termux-main/pool/main/o/openssl/</code>
+          下载带 <code>aarch64</code> 的包，再 <code>dpkg -i /sdcard/Download/openssl_*_aarch64.deb</code></td></tr>
       <tr><td>Unable to access jarfile</td><td>文件名写错或不在当前目录</td><td>用 <code>ls</code> 看实际文件名，再改命令</td></tr>
       <tr><td>You need to agree to the EULA</td><td>没同意协议</td><td><code>echo "eula=true" &gt; eula.txt</code></td></tr>
       <tr><td>Address already in use</td><td>端口被占用（常是上次没关干净）</td><td><code>pkill -f server.jar</code> 或换个端口</td></tr>
@@ -696,7 +704,14 @@ function step1(){
     } else {
       o.push("# 更新包列表并安装 Java " + j);
       o.push("pkg update -y");
-      o.push("pkg install -y " + JAVA_PKG.termux[j] + " curl");
+      o.push("pkg install -y " + JAVA_PKG.termux[j]);
+      o.push("");
+      o.push("# 注意：这里千万不要顺手写 curl！");
+      o.push("# Termux 官方要求统一用 pkg upgrade；单独 pkg install curl 会把 libcurl 升级，");
+      o.push("# 而 openssl 没跟上，curl 就会在动态链接阶段直接失败：");
+      o.push('#   CANNOT LINK EXECUTABLE "curl": cannot locate symbol');
+      o.push('#   "SSL_set_quic_tls_early_data_enabled" referenced by libcurl.so');
+      o.push("# 一旦 curl 挂了，后面所有下载都做不了。");
       o.push("");
       o.push("# 防止息屏后服务被系统挂起（Termux 专属）");
       o.push("termux-wake-lock");
