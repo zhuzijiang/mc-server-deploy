@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Minecraft Java 服务器 · 部署控制台</title>
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#2a3441;
+  --fg:#e6edf3;--dim:#8b98a5;--dim2:#6b7684;
+  --accent:#3fb950;--accent2:#2ea043;--blue:#58a6ff;--amber:#d29922;--red:#f85149;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--fg);font-size:15px;line-height:1.65;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-text-size-adjust:100%;padding-bottom:70px}
+.wrap{max-width:900px;margin:0 auto;padding:0 14px}
+header{background:linear-gradient(160deg,#13251b 0%,#0d1117 72%);border-bottom:1px solid var(--line);padding:26px 0 20px;margin-bottom:20px}
+h1{font-size:22px;margin:0 0 6px;letter-spacing:-.3px}
+h1 .em{color:var(--accent)}
+.sub{color:var(--dim);font-size:13.5px;margin:0}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.badge{font-size:11.5px;padding:3px 9px;border-radius:999px;background:#1f6feb22;color:var(--blue);border:1px solid #1f6feb44}
+.badge.ok{background:#3fb95022;color:var(--accent);border-color:#3fb95044}
+.badge.warn{background:#d2992222;color:var(--amber);border-color:#d2992244}
+
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+h2 .num{display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;
+  border-radius:7px;background:var(--accent);color:#062b10;font-size:12.5px;font-weight:800;flex:none;padding:0 6px}
+h2 .cap{font-size:11px;color:var(--dim2);font-weight:500}
+.hint{color:var(--dim2);font-size:12.5px;margin:6px 0 13px}
+h3{font-size:14px;margin:16px 0 7px;color:var(--fg);display:flex;align-items:center;gap:7px}
+h3:first-child{margin-top:0}
+
+.grid{display:grid;grid-template-columns:1fr;gap:9px}
+@media(min-width:580px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}}
+.opt{display:flex;gap:11px;align-items:flex-start;cursor:pointer;background:var(--panel2);
+  border:1.5px solid var(--line);border-radius:11px;padding:11px 12px;transition:.13s}
+.opt:active{transform:scale(.985)}
+.opt.sel{border-color:var(--accent);background:#3fb95014}
+.opt .radio{width:17px;height:17px;border-radius:50%;border:2px solid var(--dim2);flex:none;margin-top:3px;position:relative;transition:.13s}
+.opt.sel .radio{border-color:var(--accent)}
+.opt.sel .radio::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.opt .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.opt .d{color:var(--dim);font-size:12.5px;margin-top:2px;line-height:1.5}
+.opt.dis{opacity:.4;cursor:not-allowed}.opt.dis:active{transform:none}
+.tag{font-size:10.5px;padding:1px 6px;border-radius:5px;font-weight:700;flex:none}
+.tag.rec{background:var(--accent);color:#062b10}
+.tag.no{background:#f8514922;color:var(--red);border:1px solid #f8514944}
+.tag.j{background:#58a6ff1f;color:var(--blue);border:1px solid #58a6ff3a}
+.tag.b{background:#d2992222;color:var(--amber);border:1px solid #d2992244}
+
+.slider-row{display:flex;align-items:center;gap:12px;margin:4px 0 2px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:3px;
+  background:linear-gradient(90deg,var(--accent) 0%,var(--accent) var(--pct,30%),#2a3441 var(--pct,30%));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:#fff;border:3px solid var(--accent2);cursor:pointer}
+.memval{font-size:19px;font-weight:700;color:var(--accent);min-width:60px;text-align:right;font-variant-numeric:tabular-nums}
+select{width:100%;background:var(--panel2);color:var(--fg);border:1.5px solid var(--line);border-radius:11px;
+  padding:12px;font-size:15px;font-family:inherit;outline:none;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b98a5'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:22px}
+select:focus{border-color:var(--accent)}
+optgroup{background:var(--panel);color:var(--dim);font-size:13px}
+option{background:var(--panel);color:var(--fg);font-size:14px}
+
+.out{background:#010409;border:1px solid var(--line);border-radius:11px;padding:13px;overflow-x:auto;margin:0;
+  font-family:var(--mono);font-size:12.5px;line-height:1.62;white-space:pre;color:#c9d1d9;-webkit-overflow-scrolling:touch}
+.out .c{color:#6b7684}.out .k{color:#ff7b72}.out .s{color:#a5d6ff}.out .v{color:#7ee787}.out .ok{color:#3fb950}
+.btnrow{display:flex;gap:9px;margin-top:10px;flex-wrap:wrap}
+button{font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:10px;padding:11px 16px;
+  border:1.5px solid var(--line);background:var(--panel2);color:var(--fg);transition:.13s;flex:1;min-width:110px}
+button:active{transform:scale(.97)}
+button.pri{background:var(--accent2);border-color:var(--accent2);color:#fff}
+button.gh{background:transparent}
+button.sm{flex:none;min-width:auto;padding:10px 14px;font-size:13px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+td:first-child{color:var(--dim)}
+a{color:var(--blue);text-decoration:none;word-break:break-all}
+a:active{opacity:.6}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mono{font-family:var(--mono);font-size:11px;color:var(--dim2);word-break:break-all;display:block;margin-top:3px}
+.cp{font-size:11px;padding:5px 10px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);
+  color:var(--dim);cursor:pointer;white-space:nowrap;flex:none;min-width:auto}
+
+.box{border-radius:11px;padding:11px 13px;font-size:13px;margin:11px 0;border-left:3px solid var(--dim2);background:#ffffff06}
+.box.g{border-color:var(--accent);background:#3fb9500f}
+.box.a{border-color:var(--amber);background:#d299220f}
+.box.r{border-color:var(--red);background:#f851490f}
+.box.b{border-color:var(--blue);background:#58a6ff0f}
+.box b{color:var(--fg)}
+.box .lb{font-weight:700;display:block;margin-bottom:3px;font-size:12.5px}
+.box.g .lb{color:var(--accent)}.box.a .lb{color:var(--amber)}.box.r .lb{color:var(--red)}.box.b .lb{color:var(--blue)}
+.box ul{margin:5px 0 0;padding-left:19px}.box li{margin:3px 0}
+
+details{background:var(--panel2);border:1px solid var(--line);border-radius:11px;margin-bottom:8px;overflow:hidden}
+details summary{padding:12px 13px;cursor:pointer;font-weight:600;font-size:13.5px;list-style:none;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"▾";color:var(--dim);transition:.2s;flex:none}
+details[open] summary::after{transform:rotate(180deg)}
+details .body{padding:0 13px 13px;font-size:13px;color:var(--dim);line-height:1.75}
+details .body b{color:var(--fg)}
+code{background:#010409;padding:1.5px 5px;border-radius:5px;font-size:12px;color:#7ee787;
+  font-family:var(--mono);word-break:break-all}
+.kbd{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:6px;padding:1px 6px;font-size:11.5px;font-family:var(--mono);color:var(--fg)}
+.steps{counter-reset:s}
+#toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,90px);background:var(--accent2);color:#fff;
+  padding:11px 22px;border-radius:11px;font-size:13.5px;font-weight:600;transition:.25s;z-index:99;
+  box-shadow:0 8px 28px #000a;pointer-events:none;opacity:0}
+#toast.show{transform:translate(-50%,0);opacity:1}
+footer{color:var(--dim2);font-size:11.5px;text-align:center;padding:22px 14px 0;line-height:1.9}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.toc a{font-size:12px;padding:5px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Minecraft <span class="em">Java 版</span> 服务器部署控制台</h1>
+    <p class="sub">按你的设备与内存自动生成命令 · 官方直链与国内镜像 · 零基础可逐步照做</p>
+    <div class="badges" id="detect"></div>
+    <div class="toc">
+      <a href="#cfg">配置台</a><a href="#s1">装 Java</a><a href="#s2">下服务端</a>
+      <a href="#s3">首次配置</a><a href="#s4">启动</a><a href="#s5">联机</a>
+      <a href="#s6">运维</a><a href="#err">排错</a><a href="#app">附录</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ 配置台 ============ -->
+<section id="cfg">
+  <h2><span class="num">配置</span>先回答四个问题 <span class="cap">下面的命令会随你的选择自动变化</span></h2>
+  <p class="hint">不确定就点最下方的「应用推荐配置」，它会按你的设备和内存给出合适组合。</p>
+
+  <h3>① 你打算在哪里开服？</h3>
+  <div class="grid" id="envBox"></div>
+
+  <h3>② 愿意分给服务器多少内存？</h3>
+  <div class="slider-row">
+    <input type="range" id="mem" min="1" max="16" step="0.5" value="2">
+    <div class="memval" id="memVal">2 GB</div>
+  </div>
+  <div class="memnote" id="memNote" style="font-size:12.5px;color:var(--dim);margin-top:9px"></div>
+
+  <h3>③ 用哪种服务端？</h3>
+  <div class="grid two" id="loaderBox"></div>
+  <div class="box b" id="loaderNote" style="margin-bottom:0"></div>
+
+  <h3>④ 开哪个游戏版本？</h3>
+  <select id="ver"></select>
+  <div class="box a" id="verNote"></div>
+
+  <div class="btnrow">
+    <button class="pri" id="autoBtn">应用推荐配置</button>
+    <button class="gh" id="resetBtn">重置为默认</button>
+  </div>
+  <div class="box g" id="reco" style="margin-bottom:0"></div>
+</section>
+
+<!-- ============ 步骤 1 ============ -->
+<section id="s1">
+  <h2><span class="num">第 1 步</span>安装 Java 运行时</h2>
+  <p class="hint">Minecraft 服务端是 Java 程序，必须先有 Java 才能运行。选错版本会直接报 <code>UnsupportedClassVersionError</code>。</p>
+
+  <div class="box b"><span class="lb">为什么要指定版本</span>
+    每个 Minecraft 版本编译时用的 Java 版本不同，<b>只能高不能低</b>：
+    <ul>
+      <li>MC 1.20.5 ~ 1.21.x → 需要 <b>Java 21</b></li>
+      <li>MC 26.x 及以后 → 需要 <b>Java 25</b></li>
+      <li>MC 1.17 ~ 1.20.4 → 需要 <b>Java 17</b></li>
+      <li>MC 1.16.5 及更早 → 需要 <b>Java 8</b></li>
+    </ul>
+    当前选择：<b id="javaNeed">Java 21</b>
+  </div>
+
+  <h3>操作</h3>
+  <pre class="out" id="s1cmd"></pre>
+  <div class="btnrow"><button class="pri" id="s1copy">复制本步命令</button></div>
+
+  <h3>验证</h3>
+  <pre class="out" id="s1chk"></pre>
+  <div class="btnrow"><button id="s1chkcopy">复制验证命令</button></div>
+
+  <div class="box g"><span class="lb">✅ 成功标志</span>
+    执行 <code>java -version</code> 后能看到类似下面两行，且大版本号与要求一致：
+    <pre class="out" style="margin-top:7px">openjdk version "21.0.12" 2026-08-18
+OpenJDK 64-Bit Server VM (build 21.0.12, mixed mode)</pre>
+  </div>
+
+  <div class="box r"><span class="lb">❌ 常见错误</span>
+    <ul>
+      <li><b>java: command not found</b> → 没装成功，或装完没重开终端。先 <code>exit</code> 再进来。</li>
+      <li><b>报 UnsupportedClassVersionError</b> → Java 版本偏低，按上面表格装更高的。</li>
+      <li><b>Termux 里找不到 openjdk-8</b> → Termux 官方仓库只提供 17 / 21 / 25，玩 1.16.5 请改用 Linux 环境。</li>
+      <li><b>apt 装不上 / 卡住</b> → 先换国内源，见页面末尾「换源」。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 步骤 2 ============ -->
+<section id="s2">
+  <h2><span class="num">第 2 步</span>下载服务端文件</h2>
+  <p class="hint" id="s2hint"></p>
+
+  <h3>操作</h3>
+  <pre class="out" id="s2cmd"></pre>
+  <div class="btnrow">
+    <button class="pri" id="s2copy">复制本步命令</button>
+    <button class="gh" id="s2raw">复制纯净版（去注释）</button>
+  </div>
+
+  <div class="box a"><span class="lb">⚠️ 下载慢或失败怎么办</span>
+    文件托管在境外 CDN 时国内可能很慢。请用下面「直链与镜像」表里的<b>国内镜像</b>地址，
+    或直接把链接复制到支持断点续传的下载工具里下好，再传进 Termux。
+  </div>
+
+  <h3>直链与镜像</h3>
+  <div class="tw"><table>
+    <thead><tr><th>类型</th><th>地址</th><th></th></tr></thead>
+    <tbody id="links"></tbody>
+  </table></div>
+
+  <h3>校验文件完整性</h3>
+  <p class="hint" style="margin-top:0">下载中断会产生半截文件，启动时报 zip/jar 损坏。<b>下载完建议校验一次</b>。</p>
+  <pre class="out" id="s2chk"></pre>
+  <div class="btnrow"><button id="s2chkcopy">复制校验命令</button></div>
+
+  <div class="box g"><span class="lb">✅ 成功标志</span>
+    <code>ls -lh</code> 能看到一个几十 MB 的 <code>.jar</code> 文件；校验命令输出 <b>OK</b> 或与给定值一致。
+  </div>
+</section>
+
+<!-- ============ 步骤 3 ============ -->
+<section id="s3">
+  <h2><span class="num">第 3 步</span>首次配置</h2>
+  <p class="hint">服务端第一次启动前必须同意许可协议，否则会直接退出。这一步还会写好基础参数。</p>
+
+  <h3>操作</h3>
+  <pre class="out" id="s3cmd"></pre>
+  <div class="btnrow"><button class="pri" id="s3copy">复制本步命令</button></div>
+
+  <h3><code>server.properties</code> 关键参数详解</h3>
+  <div class="tw"><table>
+    <thead><tr><th>参数</th><th>作用</th><th>建议</th></tr></thead>
+    <tbody>
+      <tr><td>server-port</td><td>监听端口，默认 25565（TCP）</td><td>保持 25565，冲突再改</td></tr>
+      <tr><td>online-mode</td><td>是否验证正版账号</td><td><b>公网必须 true</b>；false 时任何人可冒充</td></tr>
+      <tr><td>view-distance</td><td>玩家视野距离（区块）</td><td>设备弱设 <b>4~6</b>，最影响性能的一项</td></tr>
+      <tr><td>simulation-distance</td><td>实体/红石模拟距离</td><td>设 <b>4~6</b>，比视野更吃 CPU</td></tr>
+      <tr><td>max-players</td><td>最大同时在线人数</td><td>按内存设，别超过硬件承受能力</td></tr>
+      <tr><td>motd</td><td>服务器列表里显示的名字</td><td>随意写，支持颜色代码</td></tr>
+      <tr><td>spawn-protection</td><td>出生点保护半径</td><td>自己玩设 <b>0</b>，公开服设 16</td></tr>
+      <tr><td>difficulty</td><td>难度 peaceful/easy/normal/hard</td><td>默认 easy</td></tr>
+      <tr><td>white-list</td><td>是否只允许白名单进入</td><td>公开服建议 <b>true</b></td></tr>
+      <tr><td>enable-command-block</td><td>是否允许命令方块</td><td>地图/玩法需要就 true</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box g"><span class="lb">✅ 成功标志</span>
+    目录下出现 <code>eula.txt</code> 和 <code>server.properties</code>，
+    且 <code>eula.txt</code> 内容为 <code>eula=true</code>。
+  </div>
+</section>
+
+<!-- ============ 步骤 4 ============ -->
+<section id="s4">
+  <h2><span class="num">第 4 步</span>启动服务器</h2>
+  <p class="hint">第一次启动会生成世界文件，比之后慢很多，属正常现象。</p>
+
+  <h3>操作</h3>
+  <pre class="out" id="s4cmd"></pre>
+  <div class="btnrow"><button class="pri" id="s4copy">复制本步命令</button></div>
+
+  <h3>JVM 启动参数逐项说明</h3>
+  <div class="tw"><table>
+    <thead><tr><th>参数</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td>-Xms / -Xmx</td><td>堆内存初始值 / 最大值。两者设成一样，避免运行中反复扩容</td></tr>
+      <tr><td>-XX:+UseG1GC</td><td>使用 G1 垃圾回收器，Minecraft 官方推荐</td></tr>
+      <tr><td>-XX:MaxGCPauseMillis</td><td>单次 GC 最长停顿目标，越小越不卡但更耗 CPU</td></tr>
+      <tr><td>-XX:+AlwaysPreTouch</td><td>启动时预先占满内存，减少运行中抖动</td></tr>
+      <tr><td>-XX:+ParallelRefProcEnabled</td><td>并行处理引用，降低 GC 停顿（Aikar 方案核心项）</td></tr>
+      <tr><td>-XX:G1NewSizePercent 等</td><td>新一代堆占比，调优后能让 TPS 更稳</td></tr>
+      <tr><td>-Dusing.aikars.flags</td><td>标记来源，仅用于提示；参数本身来自 Aikar 调优方案</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box g"><span class="lb">✅ 成功标志</span>
+    日志最后出现这两行，说明服务器已经可以接受连接：
+    <pre class="out" style="margin-top:7px">Done (12.345s)! For help, type "help"
+Starting Minecraft server on *:25565</pre>
+  </div>
+
+  <h3>怎么安全地关服</h3>
+  <div class="box r"><span class="lb">不要直接关窗口</span>
+    强行关掉进程可能导致世界文件损坏。正确做法是在服务器控制台<b>输入 <code>stop</code> 再回车</b>，
+    等日志出现 <code>ThreadedAnvilChunkStorage: All chunks are saved</code> 后再结束。
+    服务器窗口里执行 <span class="kbd">Ctrl</span>+<span class="kbd">C</span> 是次选，也可触发保存。
+  </div>
+</section>
+
+<!-- ============ 步骤 5 ============ -->
+<section id="s5">
+  <h2><span class="num">第 5 步</span>连接与联机</h2>
+  <div id="online"></div>
+</section>
+
+<!-- ============ 步骤 6 ============ -->
+<section id="s6">
+  <h2><span class="num">第 6 步</span>日常运维</h2>
+
+  <details open><summary>备份世界（最重要的一件事）</summary><div class="body">
+    <b>手动备份：</b>先停服，再打包这三个目录。<br>
+    <code>cd ~/mc &amp;&amp; tar czf ~/backup-$(date +%F-%H%M).tar.gz world world_nether world_the_end</code><br><br>
+    <b>自动备份脚本：</b>存成 <code>backup.sh</code>，用 <code>crontab -e</code> 每天跑一次。
+    <pre class="out" style="margin-top:8px">#!/usr/bin/env bash
+# 保留最近 7 份备份，自动删旧的
+cd "$HOME/mc" || exit 1
+mkdir -p "$HOME/mc-backups"
+tar czf "$HOME/mc-backups/world-$(date +%F-%H%M).tar.gz" world world_nether world_the_end
+ls -1t "$HOME/mc-backups"/world-*.tar.gz | tail -n +8 | xargs -r rm -f
+echo "备份完成: $(ls -1 "$HOME/mc-backups" | wc -l) 份"</pre>
+    <b>恢复：</b><code>tar xzf 备份文件.tar.gz</code>，覆盖回服务器目录即可。<br>
+    <b>强烈建议</b>用 <code>rsync</code> 或网盘把备份同步到另一台设备，避免设备损坏导致全丢。
+  </div></details>
+
+  <details><summary>更新服务端到新版本</summary><div class="body">
+    <b>Paper / Vanilla / Fabric：</b>停服 → 删掉旧的 <code>server.jar</code>（<b>不要删 world 目录</b>）→
+    重新执行第 2 步的下载命令 → 启动。<br>
+    <b>Forge / NeoForge：</b>换掉 <code>installer.jar</code>，重新执行
+    <code>java -jar installer.jar --installServer</code>，再启动。<br>
+    <b>注意：</b>不能任意跨大版本降级世界（如 1.21 存档放回 1.20 会损坏）。
+    升级前务必先备份，并确认插件/模组都支持新版本。
+  </div></details>
+
+  <details><summary>安装插件（仅 Paper 等支持）</summary><div class="body">
+    停服后把插件的 <code>.jar</code> 放进 <code>plugins/</code> 目录，重启即可。<br>
+    常用插件：<code>EssentialsX</code>（基础指令）、<code>LuckPerms</code>（权限）、
+    <code>CoreProtect</code>（防破坏与回滚）、<code>WorldEdit</code>（建筑编辑）。<br>
+    <b>来源可信很重要</b>：只从插件官网或 Modrinth / Hangar / SpigotMC 下载，
+    来路不明的插件常带后门。
+  </div></details>
+
+  <details><summary>模组与加载器对应关系</summary><div class="body">
+    <b>Fabric</b>：轻量、更新快，模组文件放 <code>mods/</code>，需要 Fabric API。<br>
+    <b>NeoForge</b>：1.20.2 之后的主流，新整合包多用它。<br>
+    <b>Forge</b>：老版本模组最全，1.20.1 及以前首选。<br>
+    <b>重要</b>：客户端和服务端的模组必须匹配；只装客户端模组（如小地图、优化光影）会导致进不去。
+  </div></details>
+
+  <details><summary>管理员与白名单</summary><div class="body">
+    在服务器控制台（不是聊天框）输入：<br>
+    <code>op 你的游戏ID</code> — 给自己管理员权限<br>
+    <code>whitelist on</code> — 开启白名单<br>
+    <code>whitelist add 好友ID</code> — 允许某人进入<br>
+    <code>whitelist list</code> / <code>whitelist remove 名字</code> — 查看 / 移除<br>
+    <code>ban 名字</code> / <code>kick 名字</code> — 封禁 / 踢出<br><br>
+    开白名单前记得把自己的 ID 加进去，否则会被锁在外面。
+  </div></details>
+
+  <details><summary>查看日志与性能</summary><div class="body">
+    <code>logs/latest.log</code> 是当前日志，<code>logs/</code> 里按日期存档旧日志。<br>
+    游戏内输入 <code>/tps</code>（Paper）看服务器帧率，持续低于 <b>19</b> 说明负载偏高。<br>
+    卡顿时优先降低 <code>view-distance</code> 和 <code>simulation-distance</code>，
+    再考虑减少实体、限制红石机械、给世界做预生成。
+  </div></details>
+</section>
+
+<!-- ============ 排错 ============ -->
+<section id="err">
+  <h2><span class="num">排错</span>报错信息对照表</h2>
+  <p class="hint">在日志或终端里搜关键字，按下表处理。</p>
+  <div class="tw"><table>
+    <thead><tr><th>报错关键字</th><th>原因</th><th>解决</th></tr></thead>
+    <tbody>
+      <tr><td>UnsupportedClassVersionError</td><td>Java 版本低于该 MC 版本要求</td><td>按第 1 步表格装对应 Java</td></tr>
+      <tr><td>Unable to access jarfile</td><td>文件名写错或不在当前目录</td><td>用 <code>ls</code> 看实际文件名，再改命令</td></tr>
+      <tr><td>You need to agree to the EULA</td><td>没同意协议</td><td><code>echo "eula=true" &gt; eula.txt</code></td></tr>
+      <tr><td>Address already in use</td><td>端口被占用（常是上次没关干净）</td><td><code>pkill -f server.jar</code> 或换个端口</td></tr>
+      <tr><td>Failed to bind to port</td><td>端口被占用或权限不足</td><td>用 1024 以上端口；查是否已有实例在跑</td></tr>
+      <tr><td>OutOfMemoryError</td><td>堆内存分配过小或物理内存不足</td><td>调大 -Xmx，或减少玩家/视距</td></tr>
+      <tr><td>进程被 Killed 且无日志</td><td>被系统 OOM 杀掉或后台限制回收</td><td>降低 -Xmx、减少后台程序、关闭电源优化</td></tr>
+      <tr><td>java.lang.OutOfMemoryError: Metaspace</td><td>模组过多</td><td>加 <code>-XX:MaxMetaspaceSize=512M</code></td></tr>
+      <tr><td>zip END header not found / 不是有效 jar</td><td>下载不完整或被拦成 HTML</td><td>重新下载并校验哈希</td></tr>
+      <tr><td>Connection refused / timed out</td><td>端口不通或防火墙</td><td>先在服务器本机用 <code>localhost</code> 连；再查网络</td></tr>
+      <tr><td>Unsupported major.minor version</td><td>同上，Java 太低</td><td>升级 Java</td></tr>
+      <tr><td>Permission denied</td><td>文件没有执行权限 / 目录属主不对</td><td><code>chmod +x start.sh</code>，或修正目录属主</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ 附录 ============ -->
+<section id="app">
+  <h2><span class="num">附录</span>速查与说明</h2>
+
+  <details open><summary>服务器目录结构</summary><div class="body">
+    <pre class="out">mc/
+├── server.jar            服务端核心（步骤 2 下载的）
+├── eula.txt              许可协议，必须含 eula=true
+├── server.properties     服务器主配置
+├── start.sh              启动脚本（步骤 4 生成）
+├── world/                主世界存档  ← 备份重点
+├── world_nether/         下界存档    ← 备份重点
+├── world_the_end/        末地存档    ← 备份重点
+├── logs/                 运行日志
+├── plugins/              Paper 插件目录
+├── mods/                 Fabric/Forge 模组目录
+└── ops.json / whitelist.json / banned-*.json   权限相关</pre>
+  </div></details>
+
+  <details><summary>Termux 使用速成（没用过命令行必看）</summary><div class="body">
+    <b>安装：</b>从 F-Droid 安装 Termux，<b>不要用 Google Play 版</b>（版本陈旧且仓库地址失效）。<br>
+    <b>首次启动：</b>会自己下载基础包，等出现 <code>$</code> 提示符再用。<br>
+    <b>粘贴：</b>长按屏幕 → <b>Paste</b>。也可以先复制，再长按粘贴。<br>
+    <b>回车：</b>软键盘上的回车键。<br>
+    <b>中断当前命令：</b>按 <b>音量减 + C</b>（屏幕上会出现 Ctrl，再按 C）。<br>
+    <b>换行输入多个命令：</b>直接整段粘贴即可，会逐行执行。<br>
+    <b>常用操作：</b><code>ls</code> 看文件、<code>cd 目录</code> 进入、
+    <code>pwd</code> 看当前位置、<code>cat 文件</code> 看内容、<code>nano 文件</code> 编辑（Ctrl+O 保存，Ctrl+X 退出）。
+  </div></details>
+
+  <details><summary>安装 Java 慢？换国内源</summary><div class="body">
+    <b>Termux 换源（最省事）：</b>执行 <code>termux-change-repo</code>，
+    在界面里选 <b>Mirror group → China → TUNA</b>，然后重新 <code>pkg update</code>。<br><br>
+    <b>Ubuntu / Debian 系换源：</b>先备份，再替换。
+    <pre class="out" style="margin-top:8px">cp /etc/apt/sources.list /etc/apt/sources.list.bak
+sed -i 's@//ports.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn/ubuntu-ports@g' /etc/apt/sources.list
+apt-get update</pre>
+    x86 机器用的是 archive.ubuntu.com，把上面 <code>ports.ubuntu.com</code> 换成
+    <code>archive.ubuntu.com</code>、镜像路径换成 <code>/ubuntu</code> 即可。
+  </div></details>
+
+  <details><summary>内网穿透方案对比</summary><div class="body">
+    <b>为什么要穿透：</b>家用宽带和移动网络通常没有公网 IP，外网无法直接连到你的 25565 端口。<br><br>
+    <b>playit.gg</b> — 免费额度够朋友联机，有 arm64/x64 Linux 客户端，注册后给一个固定域名，配置最简单。<br>
+    <b>frp / nginx 反代</b> — 需要一台有公网 IP 的云服务器，最稳定可控，适合长期开服。<br>
+    <b>商业内网穿透面板</b> — 如 Sakura Frp、花生壳，图形界面友好，免费版带宽和隧道数有限。<br>
+    <b>路由器端口映射</b> — 仅当运营商给了公网 IP 时可行，在路由器里把外部 25565 映射到内网设备。<br><br>
+    <b>安全提醒：</b>暴露到公网时务必保持 <code>online-mode=true</code> 并启用白名单，
+    否则容易被扫描到并遭受破坏或攻击。
+  </div></details>
+
+  <details><summary>术语表</summary><div class="body">
+    <b>服务端 / 客户端</b> — 服务端是长期运行、保存世界的那一方；客户端是你用来玩的游戏本体。<br>
+    <b>插件（Plugin）</b> — 只在 Paper/Spigot 类服务端运行，<b>玩家客户端不需要装</b>，用于权限、经济、保护等。<br>
+    <b>模组（Mod）</b> — 通过 Fabric/Forge/NeoForge 加载，<b>通常客户端也要装同样的</b>，用于增加游戏内容。<br>
+    <b>TPS</b> — 每秒游戏刻数，正常 20；低于 20 表示服务器跟不上，表现为卡顿、怪物瞬移。<br>
+    <b>区块（Chunk）</b> — 16×16 的地图单位，加载和保存都以区块为单位，是性能主要瓶颈。<br>
+    <b>正版验证</b> — 向 Mojang 验证登录账号真伪，关闭后任何人都能冒用他人 ID 进入。<br>
+    <b>JVM / 堆内存</b> — Java 虚拟机及其可用内存上限，即 <code>-Xmx</code> 控制的量。
+  </div></details>
+
+  <details><summary>关于本页数据</summary><div class="body">
+    直链来自各项目官方接口：<b>PaperMC Fill API v3</b>、<b>Mojang 版本清单</b>、
+    <b>Fabric Meta</b>、<b>Forge 官方 promotions</b>、<b>NeoForge maven</b>；
+    国内镜像来自 <b>BMCLAPI</b> 与 <b>清华 TUNA</b>。<br>
+    旧的 <code>api.papermc.io/v2</code> 接口已停止服务（返回 HTTP 410），
+    网上大量旧教程仍在使用，照抄会失败。<br>
+    直链是<b>内容寻址</b>的，一旦生成不会失效；若某版本更新，重新打开本页的解析命令即可拿到最新构建。
+  </div></details>
+</section>
+
+<footer>
+  本页为纯静态单文件网页，不联网也能用（直链需联网访问）<br>
+  版本、Java 需求与链接均取自官方接口实时核对 · 生成命令已做语法自检
+</footer>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ===== 内嵌链接数据（由官方接口采集，内容寻址，长期有效） ===== */
+const L = {"paper":{"26.3":{"file":"paper-26.3-157.jar","url":"https://fill-data.papermc.io/v1/objects/77cdcd758777734b0b64db74974f68e56cb08637f3c36b26734842cb8521cc2e/paper-26.3-157.jar","sha256":"77cdcd758777734b0b64db74974f68e56cb08637f3c36b26734842cb8521cc2e","mb":51.7,"build":157,"channel":"BETA"},"26.2":{"file":"paper-26.2-130.jar","url":"https://fill-data.papermc.io/v1/objects/715cd6633db27b2c05ce6efd2d477330ebae8a4f668cf0459fcaf434c4720fba/paper-26.2-130.jar","sha256":"715cd6633db27b2c05ce6efd2d477330ebae8a4f668cf0459fcaf434c4720fba","mb":61.5,"build":130,"channel":"STABLE"},"26.1.2":{"file":"paper-26.1.2-74.jar","url":"https://fill-data.papermc.io/v1/objects/1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7/paper-26.1.2-74.jar","sha256":"1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7","mb":50.4,"build":74,"channel":"STABLE"},"1.21.11":{"file":"paper-1.21.11-132.jar","url":"https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar","sha256":"5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba","mb":52.3,"build":132,"channel":"STABLE"},"1.21.10":{"file":"paper-1.21.10-130.jar","url":"https://fill-data.papermc.io/v1/objects/158703f75a26f842ea656b3dc6d75bf3d1ec176b97a2c36384d0b80b3871af53/paper-1.21.10-130.jar","sha256":"158703f75a26f842ea656b3dc6d75bf3d1ec176b97a2c36384d0b80b3871af53","mb":52.0,"build":130,"channel":"STABLE"},"1.21.8":{"file":"paper-1.21.8-60.jar","url":"https://fill-data.papermc.io/v1/objects/8de7c52c3b02403503d16fac58003f1efef7dd7a0256786843927fa92ee57f1e/paper-1.21.8-60.jar","sha256":"8de7c52c3b02403503d16fac58003f1efef7dd7a0256786843927fa92ee57f1e","mb":50.4,"build":60,"channel":"STABLE"},"1.21.7":{"file":"paper-1.21.7-32.jar","url":"https://fill-data.papermc.io/v1/objects/83838188699cb2837e55b890fb1a1d39ad0710285ed633fbf9fc14e9f47ce078/paper-1.21.7-32.jar","sha256":"83838188699cb2837e55b890fb1a1d39ad0710285ed633fbf9fc14e9f47ce078","mb":50.3,"build":32,"channel":"STABLE"},"1.21.6":{"file":"paper-1.21.6-48.jar","url":"https://fill-data.papermc.io/v1/objects/35e2dfa66b3491b9d2f0bb033679fa5aca1e1fdf097e7a06a80ce8afeda5c214/paper-1.21.6-48.jar","sha256":"35e2dfa66b3491b9d2f0bb033679fa5aca1e1fdf097e7a06a80ce8afeda5c214","mb":50.2,"build":48,"channel":"STABLE"},"1.21.5":{"file":"paper-1.21.5-114.jar","url":"https://fill-data.papermc.io/v1/objects/2ae6ae22adf417699746e0f89fc2ef6cb6ee050a5f6608cee58f0535d60b509e/paper-1.21.5-114.jar","sha256":"2ae6ae22adf417699746e0f89fc2ef6cb6ee050a5f6608cee58f0535d60b509e","mb":49.0,"build":114,"channel":"ALPHA"},"1.21.4":{"file":"paper-1.21.4-232.jar","url":"https://fill-data.papermc.io/v1/objects/5ee4f542f628a14c644410b08c94ea42e772ef4d29fe92973636b6813d4eaffc/paper-1.21.4-232.jar","sha256":"5ee4f542f628a14c644410b08c94ea42e772ef4d29fe92973636b6813d4eaffc","mb":49.1,"build":232,"channel":"STABLE"},"1.21.3":{"file":"paper-1.21.3-83.jar","url":"https://fill-data.papermc.io/v1/objects/87e973e1d338e869e7fdbc4b8fadc1579d7bb0246a0e0cf6e5700ace6c8bc17e/paper-1.21.3-83.jar","sha256":"87e973e1d338e869e7fdbc4b8fadc1579d7bb0246a0e0cf6e5700ace6c8bc17e","mb":48.6,"build":83,"channel":"STABLE"},"1.21.1":{"file":"paper-1.21.1-133.jar","url":"https://fill-data.papermc.io/v1/objects/39bd8c00b9e18de91dcabd3cc3dcfa5328685a53b7187a2f63280c22e2d287b9/paper-1.21.1-133.jar","sha256":"39bd8c00b9e18de91dcabd3cc3dcfa5328685a53b7187a2f63280c22e2d287b9","mb":47.1,"build":133,"channel":"STABLE"},"1.21":{"file":"paper-1.21-130.jar","url":"https://fill-data.papermc.io/v1/objects/ab9bb1afc3cea6978a0c03ce8448aa654fe8a9c4dddf341e7cbda1b0edaa73f5/paper-1.21-130.jar","sha256":"ab9bb1afc3cea6978a0c03ce8448aa654fe8a9c4dddf341e7cbda1b0edaa73f5","mb":46.8,"build":130,"channel":"STABLE"},"1.20.6":{"file":"paper-1.20.6-151.jar","url":"https://fill-data.papermc.io/v1/objects/4b011f5adb5f6c72007686a223174fce82f31aeb4b34faf4652abc840b47e640/paper-1.20.6-151.jar","sha256":"4b011f5adb5f6c72007686a223174fce82f31aeb4b34faf4652abc840b47e640","mb":43.7,"build":151,"channel":"STABLE"},"1.20.5":{"file":"paper-1.20.5-22.jar","url":"https://fill-data.papermc.io/v1/objects/3cd7da2f8df92e082a501a39c674aab3c0343edd179b86f5baccaebfc9974132/paper-1.20.5-22.jar","sha256":"3cd7da2f8df92e082a501a39c674aab3c0343edd179b86f5baccaebfc9974132","mb":43.5,"build":22,"channel":"ALPHA"},"1.20.4":{"file":"paper-1.20.4-499.jar","url":"https://fill-data.papermc.io/v1/objects/cabed3ae77cf55deba7c7d8722bc9cfd5e991201c211665f9265616d9fe5c77b/paper-1.20.4-499.jar","sha256":"cabed3ae77cf55deba7c7d8722bc9cfd5e991201c211665f9265616d9fe5c77b","mb":40.8,"build":499,"channel":"STABLE"},"1.20.2":{"file":"paper-1.20.2-318.jar","url":"https://fill-data.papermc.io/v1/objects/ba340a835ac40b8563aa7eda1cd6479a11a7623409c89a2c35cd9d7490ed17a7/paper-1.20.2-318.jar","sha256":"ba340a835ac40b8563aa7eda1cd6479a11a7623409c89a2c35cd9d7490ed17a7","mb":39.8,"build":318,"channel":"STABLE"},"1.20.1":{"file":"paper-1.20.1-196.jar","url":"https://fill-data.papermc.io/v1/objects/234a9b32098100c6fc116664d64e36ccdb58b5b649af0f80bcccb08b0255eaea/paper-1.20.1-196.jar","sha256":"234a9b32098100c6fc116664d64e36ccdb58b5b649af0f80bcccb08b0255eaea","mb":41.2,"build":196,"channel":"STABLE"},"1.20":{"file":"paper-1.20-17.jar","url":"https://fill-data.papermc.io/v1/objects/1e4ccfc0599f491ee6fee4455d3722332ac5d78584fccd55cbb3b51e11504505/paper-1.20-17.jar","sha256":"1e4ccfc0599f491ee6fee4455d3722332ac5d78584fccd55cbb3b51e11504505","mb":41.3,"build":17,"channel":"STABLE"},"1.19.4":{"file":"paper-1.19.4-550.jar","url":"https://fill-data.papermc.io/v1/objects/e587d78cba3e99ef8c4bc24cf20cc3bdbbe89e33b0b572070446af4eb6be5ccf/paper-1.19.4-550.jar","sha256":"e587d78cba3e99ef8c4bc24cf20cc3bdbbe89e33b0b572070446af4eb6be5ccf","mb":40.7,"build":550,"channel":"STABLE"},"1.19.3":{"file":"paper-1.19.3-448.jar","url":"https://fill-data.papermc.io/v1/objects/3007f2c638d5f04ed32b6adaa33053fe3634ccfa74345c83d3ea4982d38db5dc/paper-1.19.3-448.jar","sha256":"3007f2c638d5f04ed32b6adaa33053fe3634ccfa74345c83d3ea4982d38db5dc","mb":37.3,"build":448,"channel":"STABLE"},"1.19.2":{"file":"paper-1.19.2-307.jar","url":"https://fill-data.papermc.io/v1/objects/2eb5c7459ec94bcdc597ed711d549a3ab4b0fda13e412a0792a1a069b5903864/paper-1.19.2-307.jar","sha256":"2eb5c7459ec94bcdc597ed711d549a3ab4b0fda13e412a0792a1a069b5903864","mb":36.5,"build":307,"channel":"STABLE"},"1.19.1":{"file":"paper-1.19.1-111.jar","url":"https://fill-data.papermc.io/v1/objects/5afe23a1fade92c547124fa874bc7d908fa676f49f09879fa876224b62e9d51b/paper-1.19.1-111.jar","sha256":"5afe23a1fade92c547124fa874bc7d908fa676f49f09879fa876224b62e9d51b","mb":36.3,"build":111,"channel":"STABLE"},"1.19":{"file":"paper-1.19-81.jar","url":"https://fill-data.papermc.io/v1/objects/0d39cacc51a77b2b071e1ce862fcbf0b4a4bd668cc7e8b313598d84fa09fabac/paper-1.19-81.jar","sha256":"0d39cacc51a77b2b071e1ce862fcbf0b4a4bd668cc7e8b313598d84fa09fabac","mb":36.4,"build":81,"channel":"STABLE"},"1.18.2":{"file":"paper-1.18.2-388.jar","url":"https://fill-data.papermc.io/v1/objects/0578f18f4d632b494b468ec56b3b414b5b56fea087ee7d39cf6dcdf4c9d01f05/paper-1.18.2-388.jar","sha256":"0578f18f4d632b494b468ec56b3b414b5b56fea087ee7d39cf6dcdf4c9d01f05","mb":33.2,"build":388,"channel":"STABLE"},"1.18.1":{"file":"paper-1.18.1-216.jar","url":"https://fill-data.papermc.io/v1/objects/a94917a4472c2cbc9907a15c666bbb784f95ecd7b53c77bc08fe71103e5487f5/paper-1.18.1-216.jar","sha256":"a94917a4472c2cbc9907a15c666bbb784f95ecd7b53c77bc08fe71103e5487f5","mb":33.0,"build":216,"channel":"STABLE"},"1.18":{"file":"paper-1.18-66.jar","url":"https://fill-data.papermc.io/v1/objects/3c995f20dae4e4e21d5554fac957a0a8a5c85bd5bf34915fac4b4f16e0ef101b/paper-1.18-66.jar","sha256":"3c995f20dae4e4e21d5554fac957a0a8a5c85bd5bf34915fac4b4f16e0ef101b","mb":32.9,"build":66,"channel":"ALPHA"},"1.17.1":{"file":"paper-1.17.1-411.jar","url":"https://fill-data.papermc.io/v1/objects/6cc1ee2f94253ce10b5374ed85fffc735a97d8f1b64db293683dfa24dd3cc05f/paper-1.17.1-411.jar","sha256":"6cc1ee2f94253ce10b5374ed85fffc735a97d8f1b64db293683dfa24dd3cc05f","mb":59.0,"build":411,"channel":"STABLE"},"1.17":{"file":"paper-1.17-79.jar","url":"https://fill-data.papermc.io/v1/objects/760a93b94a58d619bd647d71af84688617d0444d22b716500bc6b343858dc871/paper-1.17-79.jar","sha256":"760a93b94a58d619bd647d71af84688617d0444d22b716500bc6b343858dc871","mb":57.6,"build":79,"channel":"STABLE"},"1.16.5":{"file":"paper-1.16.5-794.jar","url":"https://fill-data.papermc.io/v1/objects/e67da4851d08cde378ab2b89be58849238c303351ed2482181a99c2c2b489276/paper-1.16.5-794.jar","sha256":"e67da4851d08cde378ab2b89be58849238c303351ed2482181a99c2c2b489276","mb":51.4,"build":794,"channel":"STABLE"},"1.16.4":{"file":"paper-1.16.4-416.jar","url":"https://fill-data.papermc.io/v1/objects/963268ed564ac7d2ec076463e921ffa09570235f587bbd1a4d91a23ca4264b66/paper-1.16.4-416.jar","sha256":"963268ed564ac7d2ec076463e921ffa09570235f587bbd1a4d91a23ca4264b66","mb":44.8,"build":416,"channel":"STABLE"},"1.16.3":{"file":"paper-1.16.3-253.jar","url":"https://fill-data.papermc.io/v1/objects/940303ee5f5bcc08377e388ea1c1daa109c1ac8c4d189dc67de1106853f2fc23/paper-1.16.3-253.jar","sha256":"940303ee5f5bcc08377e388ea1c1daa109c1ac8c4d189dc67de1106853f2fc23","mb":44.7,"build":253,"channel":"STABLE"},"1.16.2":{"file":"paper-1.16.2-189.jar","url":"https://fill-data.papermc.io/v1/objects/e5e10517daaa9bd6d54a8a0d22d866e31da7c1b47cb9e425ffaac236fde75ec9/paper-1.16.2-189.jar","sha256":"e5e10517daaa9bd6d54a8a0d22d866e31da7c1b47cb9e425ffaac236fde75ec9","mb":44.7,"build":189,"channel":"STABLE"},"1.16.1":{"file":"paper-1.16.1-138.jar","url":"https://fill-data.papermc.io/v1/objects/929559ba1dfc6de2904e17289fb3d1ac95f0ab48c7540cf5b8c2f055fea9d59c/paper-1.16.1-138.jar","sha256":"929559ba1dfc6de2904e17289fb3d1ac95f0ab48c7540cf5b8c2f055fea9d59c","mb":44.8,"build":138,"channel":"STABLE"},"1.15.2":{"file":"paper-1.15.2-393.jar","url":"https://fill-data.papermc.io/v1/objects/bd2dd6f2cc489cf9e2bb800cb4fb6d63e9d293945d3ac10b09dd9c6098fa9f34/paper-1.15.2-393.jar","sha256":"bd2dd6f2cc489cf9e2bb800cb4fb6d63e9d293945d3ac10b09dd9c6098fa9f34","mb":42.9,"build":393,"channel":"STABLE"},"1.15.1":{"file":"paper-1.15.1-62.jar","url":"https://fill-data.papermc.io/v1/objects/22a7a19f378db8edf92cdba57d91ceea7e4fa6470b677e6bbe57e8f7e1d9a4dd/paper-1.15.1-62.jar","sha256":"22a7a19f378db8edf92cdba57d91ceea7e4fa6470b677e6bbe57e8f7e1d9a4dd","mb":41.9,"build":62,"channel":"STABLE"},"1.15":{"file":"paper-1.15-21.jar","url":"https://fill-data.papermc.io/v1/objects/8b726c0deb6c3a265d679a3d3a2c0f8e5243fbc6ddcfcaf42e24209cb1f829b4/paper-1.15-21.jar","sha256":"8b726c0deb6c3a265d679a3d3a2c0f8e5243fbc6ddcfcaf42e24209cb1f829b4","mb":41.9,"build":21,"channel":"STABLE"},"1.14.4":{"file":"paper-1.14.4-245.jar","url":"https://fill-data.papermc.io/v1/objects/bd8ec5cdb22370d37816a6de26798df3d2b0d6f9c7c96c88ca45a1303fea50e8/paper-1.14.4-245.jar","sha256":"bd8ec5cdb22370d37816a6de26798df3d2b0d6f9c7c96c88ca45a1303fea50e8","mb":41.9,"build":245,"channel":"STABLE"},"1.14.3":{"file":"paper-1.14.3-134.jar","url":"https://fill-data.papermc.io/v1/objects/b6d2d8ac67d685141697a8cecd99c47baf604900007eb0e270fd6ea86cbbc540/paper-1.14.3-134.jar","sha256":"b6d2d8ac67d685141697a8cecd99c47baf604900007eb0e270fd6ea86cbbc540","mb":42.3,"build":134,"channel":"STABLE"},"1.14.2":{"file":"paper-1.14.2-107.jar","url":"https://fill-data.papermc.io/v1/objects/12034e578e014eb369e2929f3725bd409858bf94128e46d1f286d5be36c3cb0e/paper-1.14.2-107.jar","sha256":"12034e578e014eb369e2929f3725bd409858bf94128e46d1f286d5be36c3cb0e","mb":42.2,"build":107,"channel":"STABLE"},"1.13.2":{"file":"paper-1.13.2-657.jar","url":"https://fill-data.papermc.io/v1/objects/11e828d0565ab76a0a0e180c056364a95de44958cfd6a6af3f9b1dc70b03e9cd/paper-1.13.2-657.jar","sha256":"11e828d0565ab76a0a0e180c056364a95de44958cfd6a6af3f9b1dc70b03e9cd","mb":42.9,"build":657,"channel":"STABLE"},"1.13.1":{"file":"paper-1.13.1-386.jar","url":"https://fill-data.papermc.io/v1/objects/6637401d87d0f5db5aaee90d7103f52c5e1baaf6b6d4643a5793e7b02b5775cb/paper-1.13.1-386.jar","sha256":"6637401d87d0f5db5aaee90d7103f52c5e1baaf6b6d4643a5793e7b02b5775cb","mb":41.0,"build":386,"channel":"STABLE"},"1.12.2":{"file":"paper-1.12.2-1620.jar","url":"https://fill-data.papermc.io/v1/objects/3a2041807f492dcdc34ebb324a287414946e3e05ec3df6fd03f5b5f7d9afc210/paper-1.12.2-1620.jar","sha256":"3a2041807f492dcdc34ebb324a287414946e3e05ec3df6fd03f5b5f7d9afc210","mb":39.1,"build":1620,"channel":"STABLE"},"1.12.1":{"file":"paper-1.12.1-1204.jar","url":"https://fill-data.papermc.io/v1/objects/dba2219d674ad85e4ef2c41931d34b6fa4be75a887973ecaaf286727a03812da/paper-1.12.1-1204.jar","sha256":"dba2219d674ad85e4ef2c41931d34b6fa4be75a887973ecaaf286727a03812da","mb":36.8,"build":1204,"channel":"STABLE"},"1.12":{"file":"paper-1.12-1169.jar","url":"https://fill-data.papermc.io/v1/objects/1e7e88a2ed6f2b70fa3f6ec6611373458c5d72b2a8707e60921df601c791e60e/paper-1.12-1169.jar","sha256":"1e7e88a2ed6f2b70fa3f6ec6611373458c5d72b2a8707e60921df601c791e60e","mb":36.6,"build":1169,"channel":"STABLE"},"1.11.2":{"file":"paper-1.11.2-1106.jar","url":"https://fill-data.papermc.io/v1/objects/3d0f40ec1f9630dfdbafa626cc20c266d7fb90fc22583dc1b995e7fbfb76830d/paper-1.11.2-1106.jar","sha256":"3d0f40ec1f9630dfdbafa626cc20c266d7fb90fc22583dc1b995e7fbfb76830d","mb":23.2,"build":1106,"channel":"STABLE"},"1.10.2":{"file":"paper-1.10.2-918.jar","url":"https://fill-data.papermc.io/v1/objects/83354d24a22b6265e76c089b3d17a568abb446c0ccd12c2452f5e148412b16c2/paper-1.10.2-918.jar","sha256":"83354d24a22b6265e76c089b3d17a568abb446c0ccd12c2452f5e148412b16c2","mb":20.1,"build":918,"channel":"STABLE"},"1.9.4":{"file":"paper-1.9.4-775.jar","url":"https://fill-data.papermc.io/v1/objects/15a5821ddeacc596432c3fbf24262a2d264f556060ecd6f1838fb01ab5629a81/paper-1.9.4-775.jar","sha256":"15a5821ddeacc596432c3fbf24262a2d264f556060ecd6f1838fb01ab5629a81","mb":20.0,"build":775,"channel":"STABLE"},"1.8.8":{"file":"paper-1.8.8-445.jar","url":"https://fill-data.papermc.io/v1/objects/7ff6d2cec671ef0d95b3723b5c92890118fb882d73b7f8fa0a2cd31d97c55f86/paper-1.8.8-445.jar","sha256":"7ff6d2cec671ef0d95b3723b5c92890118fb882d73b7f8fa0a2cd31d97c55f86","mb":18.6,"build":445,"channel":"STABLE"},"1.7.10":{"file":"paper-1.7.10-2025.jar","url":"https://fill-data.papermc.io/v1/objects/33772078d92e9dbb027602da016524ef29af5b4c12eaddac1fe2465b01108185/paper-1.7.10-2025.jar","sha256":"33772078d92e9dbb027602da016524ef29af5b4c12eaddac1fe2465b01108185","mb":18.1,"build":2025,"channel":"STABLE"}},"vanilla":{"26.3":{"official":"https://piston-data.mojang.com/v1/objects/33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c/server.jar","sha1":"33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c","mb":59.4,"mirror":"https://bmclapi2.bangbang93.com/version/26.3/server"},"26.2":{"official":"https://piston-data.mojang.com/v1/objects/823e2250d24b3ddac457a60c92a6a941943fcd6a/server.jar","sha1":"823e2250d24b3ddac457a60c92a6a941943fcd6a","mb":58.1,"mirror":"https://bmclapi2.bangbang93.com/version/26.2/server"},"26.1.2":{"official":"https://piston-data.mojang.com/v1/objects/97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51/server.jar","sha1":"97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51","mb":57.6,"mirror":"https://bmclapi2.bangbang93.com/version/26.1.2/server"},"1.21.11":{"official":"https://piston-data.mojang.com/v1/objects/64bb6d763bed0a9f1d632ec347938594144943ed/server.jar","sha1":"64bb6d763bed0a9f1d632ec347938594144943ed","mb":53.7,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.11/server"},"1.21.10":{"official":"https://piston-data.mojang.com/v1/objects/95495a7f485eedd84ce928cef5e223b757d2f764/server.jar","sha1":"95495a7f485eedd84ce928cef5e223b757d2f764","mb":55.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.10/server"},"1.21.8":{"official":"https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar","sha1":"6bce4ef400e4efaa63a13d5e6f6b500be969ef81","mb":54.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.8/server"},"1.21.7":{"official":"https://piston-data.mojang.com/v1/objects/05e4b48fbc01f0385adb74bcff9751d34552486c/server.jar","sha1":"05e4b48fbc01f0385adb74bcff9751d34552486c","mb":54.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.7/server"},"1.21.6":{"official":"https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar","sha1":"6e64dcabba3c01a7271b4fa6bd898483b794c59b","mb":54.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.6/server"},"1.21.5":{"official":"https://piston-data.mojang.com/v1/objects/e6ec2f64e6080b9b5d9b471b291c33cc7f509733/server.jar","sha1":"e6ec2f64e6080b9b5d9b471b291c33cc7f509733","mb":54.6,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.5/server"},"1.21.4":{"official":"https://piston-data.mojang.com/v1/objects/4707d00eb834b446575d89a61a11b5d548d8c001/server.jar","sha1":"4707d00eb834b446575d89a61a11b5d548d8c001","mb":54.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.4/server"},"1.21.3":{"official":"https://piston-data.mojang.com/v1/objects/45810d238246d90e811d896f87b14695b7fb6839/server.jar","sha1":"45810d238246d90e811d896f87b14695b7fb6839","mb":53.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.3/server"},"1.21.1":{"official":"https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar","sha1":"59353fb40c36d304f2035d51e7d6e6baa98dc05c","mb":49.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.21.1/server"},"1.21":{"official":"https://piston-data.mojang.com/v1/objects/450698d1863ab5180c25d7c804ef0fe6369dd1ba/server.jar","sha1":"450698d1863ab5180c25d7c804ef0fe6369dd1ba","mb":49.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.21/server"},"1.20.6":{"official":"https://piston-data.mojang.com/v1/objects/145ff0858209bcfc164859ba735d4199aafa1eea/server.jar","sha1":"145ff0858209bcfc164859ba735d4199aafa1eea","mb":49.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.6/server"},"1.20.5":{"official":"https://piston-data.mojang.com/v1/objects/79493072f65e17243fd36a699c9a96b4381feb91/server.jar","sha1":"79493072f65e17243fd36a699c9a96b4381feb91","mb":49.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.5/server"},"1.20.4":{"official":"https://piston-data.mojang.com/v1/objects/8dd1a28015f51b1803213892b50b7b4fc76e594d/server.jar","sha1":"8dd1a28015f51b1803213892b50b7b4fc76e594d","mb":46.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.4/server"},"1.20.3":{"official":"https://piston-data.mojang.com/v1/objects/4fb536bfd4a83d61cdbaf684b8d311e66e7d4c49/server.jar","sha1":"4fb536bfd4a83d61cdbaf684b8d311e66e7d4c49","mb":46.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.3/server"},"1.20.2":{"official":"https://piston-data.mojang.com/v1/objects/5b868151bd02b41319f54c8d4061b8cae84e665c/server.jar","sha1":"5b868151bd02b41319f54c8d4061b8cae84e665c","mb":46.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.2/server"},"1.20.1":{"official":"https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar","sha1":"84194a2f286ef7c14ed7ce0090dba59902951553","mb":45.6,"mirror":"https://bmclapi2.bangbang93.com/version/1.20.1/server"},"1.20":{"official":"https://piston-data.mojang.com/v1/objects/15c777e2cfe0556eef19aab534b186c0c6f277e1/server.jar","sha1":"15c777e2cfe0556eef19aab534b186c0c6f277e1","mb":45.6,"mirror":"https://bmclapi2.bangbang93.com/version/1.20/server"},"1.19.4":{"official":"https://piston-data.mojang.com/v1/objects/8f3112a1049751cc472ec13e397eade5336ca7ae/server.jar","sha1":"8f3112a1049751cc472ec13e397eade5336ca7ae","mb":45.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.19.4/server"},"1.19.3":{"official":"https://piston-data.mojang.com/v1/objects/c9df48efed58511cdd0213c56b9013a7b5c9ac1f/server.jar","sha1":"c9df48efed58511cdd0213c56b9013a7b5c9ac1f","mb":45.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.19.3/server"},"1.19.2":{"official":"https://piston-data.mojang.com/v1/objects/f69c284232d7c7580bd89a5a4931c3581eae1378/server.jar","sha1":"f69c284232d7c7580bd89a5a4931c3581eae1378","mb":43.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.19.2/server"},"1.19.1":{"official":"https://piston-data.mojang.com/v1/objects/8399e1211e95faa421c1507b322dbeae86d604df/server.jar","sha1":"8399e1211e95faa421c1507b322dbeae86d604df","mb":43.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.19.1/server"},"1.19":{"official":"https://piston-data.mojang.com/v1/objects/e00c4052dac1d59a1188b2aa9d5a87113aaf1122/server.jar","sha1":"e00c4052dac1d59a1188b2aa9d5a87113aaf1122","mb":43.4,"mirror":"https://bmclapi2.bangbang93.com/version/1.19/server"},"1.18.2":{"official":"https://piston-data.mojang.com/v1/objects/c8f83c5655308435b3dcf03c06d9fe8740a77469/server.jar","sha1":"c8f83c5655308435b3dcf03c06d9fe8740a77469","mb":44.4,"mirror":"https://bmclapi2.bangbang93.com/version/1.18.2/server"},"1.18.1":{"official":"https://piston-data.mojang.com/v1/objects/125e5adf40c659fd3bce3e66e67a16bb49ecc1b9/server.jar","sha1":"125e5adf40c659fd3bce3e66e67a16bb49ecc1b9","mb":44.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.18.1/server"},"1.18":{"official":"https://piston-data.mojang.com/v1/objects/3cf24a8694aca6267883b17d934efacc5e44440d/server.jar","sha1":"3cf24a8694aca6267883b17d934efacc5e44440d","mb":44.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.18/server"},"1.17.1":{"official":"https://piston-data.mojang.com/v1/objects/a16d67e5807f57fc4e550299cf20226194497dc2/server.jar","sha1":"a16d67e5807f57fc4e550299cf20226194497dc2","mb":41.6,"mirror":"https://bmclapi2.bangbang93.com/version/1.17.1/server"},"1.17":{"official":"https://piston-data.mojang.com/v1/objects/0a269b5f2c5b93b1712d0f5dc43b6182b9ab254e/server.jar","sha1":"0a269b5f2c5b93b1712d0f5dc43b6182b9ab254e","mb":41.6,"mirror":"https://bmclapi2.bangbang93.com/version/1.17/server"},"1.16.5":{"official":"https://piston-data.mojang.com/v1/objects/1b557e7b033b583cd9f66746b7a9ab1ec1673ced/server.jar","sha1":"1b557e7b033b583cd9f66746b7a9ab1ec1673ced","mb":36.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.16.5/server"},"1.16.4":{"official":"https://piston-data.mojang.com/v1/objects/35139deedbd5182953cf1caa23835da59ca3d7cd/server.jar","sha1":"35139deedbd5182953cf1caa23835da59ca3d7cd","mb":36.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.16.4/server"},"1.16.3":{"official":"https://piston-data.mojang.com/v1/objects/f02f4473dbf152c23d7d484952121db0b36698cb/server.jar","sha1":"f02f4473dbf152c23d7d484952121db0b36698cb","mb":36.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.16.3/server"},"1.16.2":{"official":"https://piston-data.mojang.com/v1/objects/c5f6fb23c3876461d46ec380421e42b289789530/server.jar","sha1":"c5f6fb23c3876461d46ec380421e42b289789530","mb":36.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.16.2/server"},"1.16.1":{"official":"https://piston-data.mojang.com/v1/objects/a412fd69db1f81db3f511c1463fd304675244077/server.jar","sha1":"a412fd69db1f81db3f511c1463fd304675244077","mb":36.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.16.1/server"},"1.15.2":{"official":"https://piston-data.mojang.com/v1/objects/bb2b6b1aefcd70dfd1892149ac3a215f6c636b07/server.jar","sha1":"bb2b6b1aefcd70dfd1892149ac3a215f6c636b07","mb":34.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.15.2/server"},"1.15.1":{"official":"https://piston-data.mojang.com/v1/objects/4d1826eebac84847c71a77f9349cc22afd0cf0a1/server.jar","sha1":"4d1826eebac84847c71a77f9349cc22afd0cf0a1","mb":34.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.15.1/server"},"1.15":{"official":"https://piston-data.mojang.com/v1/objects/e9f105b3c5c7e85c7b445249a93362a22f62442d/server.jar","sha1":"e9f105b3c5c7e85c7b445249a93362a22f62442d","mb":34.5,"mirror":"https://bmclapi2.bangbang93.com/version/1.15/server"},"1.14.4":{"official":"https://piston-data.mojang.com/v1/objects/3dc3d84a581f14691199cf6831b71ed1296a9fdf/server.jar","sha1":"3dc3d84a581f14691199cf6831b71ed1296a9fdf","mb":34.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.14.4/server"},"1.14.3":{"official":"https://piston-data.mojang.com/v1/objects/d0d0fe2b1dc6ab4c65554cb734270872b72dadd6/server.jar","sha1":"d0d0fe2b1dc6ab4c65554cb734270872b72dadd6","mb":34.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.14.3/server"},"1.14.2":{"official":"https://piston-data.mojang.com/v1/objects/808be3869e2ca6b62378f9f4b33c946621620019/server.jar","sha1":"808be3869e2ca6b62378f9f4b33c946621620019","mb":34.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.14.2/server"},"1.13.2":{"official":"https://piston-data.mojang.com/v1/objects/3737db93722a9e39eeada7c27e7aca28b144ffa7/server.jar","sha1":"3737db93722a9e39eeada7c27e7aca28b144ffa7","mb":32.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.13.2/server"},"1.13.1":{"official":"https://piston-data.mojang.com/v1/objects/fe123682e9cb30031eae351764f653500b7396c9/server.jar","sha1":"fe123682e9cb30031eae351764f653500b7396c9","mb":32.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.13.1/server"},"1.12.2":{"official":"https://piston-data.mojang.com/v1/objects/886945bfb2b978778c3a0288fd7fab09d315b25f/server.jar","sha1":"886945bfb2b978778c3a0288fd7fab09d315b25f","mb":28.8,"mirror":"https://bmclapi2.bangbang93.com/version/1.12.2/server"},"1.12.1":{"official":"https://piston-data.mojang.com/v1/objects/561c7b2d54bae80cc06b05d950633a9ac95da816/server.jar","sha1":"561c7b2d54bae80cc06b05d950633a9ac95da816","mb":28.8,"mirror":"https://bmclapi2.bangbang93.com/version/1.12.1/server"},"1.12":{"official":"https://piston-data.mojang.com/v1/objects/8494e844e911ea0d63878f64da9dcc21f53a3463/server.jar","sha1":"8494e844e911ea0d63878f64da9dcc21f53a3463","mb":28.8,"mirror":"https://bmclapi2.bangbang93.com/version/1.12/server"},"1.11.2":{"official":"https://piston-data.mojang.com/v1/objects/f00c294a1576e03fddcac777c3cf4c7d404c4ba4/server.jar","sha1":"f00c294a1576e03fddcac777c3cf4c7d404c4ba4","mb":9.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.11.2/server"},"1.11":{"official":"https://piston-data.mojang.com/v1/objects/48820c84cb1ed502cb5b2fe23b8153d5e4fa61c0/server.jar","sha1":"48820c84cb1ed502cb5b2fe23b8153d5e4fa61c0","mb":9.3,"mirror":"https://bmclapi2.bangbang93.com/version/1.11/server"},"1.10.2":{"official":"https://piston-data.mojang.com/v1/objects/3d501b23df53c548254f5e3f66492d178a48db63/server.jar","sha1":"3d501b23df53c548254f5e3f66492d178a48db63","mb":9.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.10.2/server"},"1.10":{"official":"https://piston-data.mojang.com/v1/objects/a96617ffdf5dabbb718ab11a9a68e50545fc5bee/server.jar","sha1":"a96617ffdf5dabbb718ab11a9a68e50545fc5bee","mb":9.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.10/server"},"1.9.4":{"official":"https://piston-data.mojang.com/v1/objects/edbb7b1758af33d365bf835eb9d13de005b1e274/server.jar","sha1":"edbb7b1758af33d365bf835eb9d13de005b1e274","mb":9.0,"mirror":"https://bmclapi2.bangbang93.com/version/1.9.4/server"},"1.9":{"official":"https://piston-data.mojang.com/v1/objects/b4d449cf2918e0f3bd8aa18954b916a4d1880f0d/server.jar","sha1":"b4d449cf2918e0f3bd8aa18954b916a4d1880f0d","mb":8.4,"mirror":"https://bmclapi2.bangbang93.com/version/1.9/server"},"1.8.9":{"official":"https://launcher.mojang.com/v1/objects/b58b2ceb36e01bcd8dbf49c8fb66c55a9f0676cd/server.jar","sha1":"b58b2ceb36e01bcd8dbf49c8fb66c55a9f0676cd","mb":7.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.8.9/server"},"1.8.8":{"official":"https://launcher.mojang.com/v1/objects/5fafba3f58c40dc51b5c3ca72a98f62dfdae1db7/server.jar","sha1":"5fafba3f58c40dc51b5c3ca72a98f62dfdae1db7","mb":7.9,"mirror":"https://bmclapi2.bangbang93.com/version/1.8.8/server"},"1.7.10":{"official":"https://launcher.mojang.com/v1/objects/952438ac4e01b4d115c5fc38f891710c4941df29/server.jar","sha1":"952438ac4e01b4d115c5fc38f891710c4941df29","mb":9.2,"mirror":"https://bmclapi2.bangbang93.com/version/1.7.10/server"}},"fabric":{"26.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.26.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/26.3/0.19.5/1.1.2/server/jar","mirror":null},"26.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.26.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/26.2/0.19.5/1.1.2/server/jar","mirror":null},"26.1.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.26.1.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/26.1.2/0.19.5/1.1.2/server/jar","mirror":null},"1.21.11":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.11-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.11/0.19.5/1.1.2/server/jar","mirror":null},"1.21.10":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.10-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.10/0.19.5/1.1.2/server/jar","mirror":null},"1.21.8":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.8-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.8/0.19.5/1.1.2/server/jar","mirror":null},"1.21.7":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.7-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.7/0.19.5/1.1.2/server/jar","mirror":null},"1.21.6":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.6-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.6/0.19.5/1.1.2/server/jar","mirror":null},"1.21.5":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.5-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.5/0.19.5/1.1.2/server/jar","mirror":null},"1.21.4":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.4-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.4/0.19.5/1.1.2/server/jar","mirror":null},"1.21.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.3/0.19.5/1.1.2/server/jar","mirror":null},"1.21.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.19.5/1.1.2/server/jar","mirror":null},"1.21":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.21-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.21/0.19.5/1.1.2/server/jar","mirror":null},"1.20.6":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.6-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.6/0.19.5/1.1.2/server/jar","mirror":null},"1.20.5":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.5-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.5/0.19.5/1.1.2/server/jar","mirror":null},"1.20.4":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.4-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.4/0.19.5/1.1.2/server/jar","mirror":null},"1.20.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.3/0.19.5/1.1.2/server/jar","mirror":null},"1.20.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.2/0.19.5/1.1.2/server/jar","mirror":null},"1.20.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20.1/0.19.5/1.1.2/server/jar","mirror":null},"1.20":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.20-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.20/0.19.5/1.1.2/server/jar","mirror":null},"1.19.4":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.19.4-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.19.4/0.19.5/1.1.2/server/jar","mirror":null},"1.19.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.19.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.19.3/0.19.5/1.1.2/server/jar","mirror":null},"1.19.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.19.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.19.2/0.19.5/1.1.2/server/jar","mirror":null},"1.19.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.19.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.19.1/0.19.5/1.1.2/server/jar","mirror":null},"1.19":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.19-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.19/0.19.5/1.1.2/server/jar","mirror":null},"1.18.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.18.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.18.2/0.19.5/1.1.2/server/jar","mirror":null},"1.18.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.18.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.18.1/0.19.5/1.1.2/server/jar","mirror":null},"1.18":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.18-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.18/0.19.5/1.1.2/server/jar","mirror":null},"1.17.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.17.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.17.1/0.19.5/1.1.2/server/jar","mirror":null},"1.17":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.17-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.17/0.19.5/1.1.2/server/jar","mirror":null},"1.16.5":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.16.5-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.16.5/0.19.5/1.1.2/server/jar","mirror":null},"1.16.4":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.16.4-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.16.4/0.19.5/1.1.2/server/jar","mirror":null},"1.16.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.16.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.16.3/0.19.5/1.1.2/server/jar","mirror":null},"1.16.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.16.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.16.2/0.19.5/1.1.2/server/jar","mirror":null},"1.16.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.16.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.16.1/0.19.5/1.1.2/server/jar","mirror":null},"1.15.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.15.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.15.2/0.19.5/1.1.2/server/jar","mirror":null},"1.15.1":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.15.1-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.15.1/0.19.5/1.1.2/server/jar","mirror":null},"1.15":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.15-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.15/0.19.5/1.1.2/server/jar","mirror":null},"1.14.4":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.14.4-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.14.4/0.19.5/1.1.2/server/jar","mirror":null},"1.14.3":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.14.3-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.14.3/0.19.5/1.1.2/server/jar","mirror":null},"1.14.2":{"loader":"0.19.5","installer":"1.1.2","file":"fabric-server-mc.1.14.2-loader.0.19.5-launcher.1.1.2.jar","url":"https://meta.fabricmc.net/v2/versions/loader/1.14.2/0.19.5/1.1.2/server/jar","mirror":null}},"neoforge":{"26.3":{"version":"26.3.0.51-beta","beta":true,"channel":"beta","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/26.3.0.51-beta/neoforge-26.3.0.51-beta-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/26.3.0.51-beta/neoforge-26.3.0.51-beta-installer.jar"},"26.2":{"version":"26.2.0.88","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/26.2.0.88/neoforge-26.2.0.88-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/26.2.0.88/neoforge-26.2.0.88-installer.jar"},"26.1.2":{"version":"26.1.2.114","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/26.1.2.114/neoforge-26.1.2.114-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/26.1.2.114/neoforge-26.1.2.114-installer.jar"},"1.21.11":{"version":"21.11.45","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.11.45/neoforge-21.11.45-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.11.45/neoforge-21.11.45-installer.jar"},"1.21.10":{"version":"21.10.64","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.10.64/neoforge-21.10.64-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.10.64/neoforge-21.10.64-installer.jar"},"1.21.8":{"version":"21.8.54","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.8.54/neoforge-21.8.54-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.8.54/neoforge-21.8.54-installer.jar"},"1.21.7":{"version":"21.7.25-beta","beta":true,"channel":"beta","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.7.25-beta/neoforge-21.7.25-beta-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.7.25-beta/neoforge-21.7.25-beta-installer.jar"},"1.21.6":{"version":"21.6.20-beta","beta":true,"channel":"beta","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.6.20-beta/neoforge-21.6.20-beta-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.6.20-beta/neoforge-21.6.20-beta-installer.jar"},"1.21.5":{"version":"21.5.98","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.5.98/neoforge-21.5.98-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.5.98/neoforge-21.5.98-installer.jar"},"1.21.4":{"version":"21.4.158","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.4.158/neoforge-21.4.158-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.4.158/neoforge-21.4.158-installer.jar"},"1.21.3":{"version":"21.3.97","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.3.97/neoforge-21.3.97-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.3.97/neoforge-21.3.97-installer.jar"},"1.21.1":{"version":"21.1.255","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.255/neoforge-21.1.255-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.1.255/neoforge-21.1.255-installer.jar"},"1.21":{"version":"21.0.167","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/21.0.167/neoforge-21.0.167-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.0.167/neoforge-21.0.167-installer.jar"},"1.20.6":{"version":"20.6.141","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/20.6.141/neoforge-20.6.141-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/20.6.141/neoforge-20.6.141-installer.jar"},"1.20.5":{"version":"20.5.21-beta","beta":true,"channel":"beta","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/20.5.21-beta/neoforge-20.5.21-beta-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/20.5.21-beta/neoforge-20.5.21-beta-installer.jar"},"1.20.4":{"version":"20.4.251","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/20.4.251/neoforge-20.4.251-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/20.4.251/neoforge-20.4.251-installer.jar"},"1.20.3":{"version":"20.3.8-beta","beta":true,"channel":"beta","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/20.3.8-beta/neoforge-20.3.8-beta-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/20.3.8-beta/neoforge-20.3.8-beta-installer.jar"},"1.20.2":{"version":"20.2.93","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/20.2.93/neoforge-20.2.93-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/20.2.93/neoforge-20.2.93-installer.jar"},"1.20.1":{"version":"1.20.1-47.1.105","beta":false,"channel":"stable","official":"https://maven.neoforged.net/releases/net/neoforged/neoforge/1.20.1-47.1.105/neoforge-1.20.1-47.1.105-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/1.20.1-47.1.105/neoforge-1.20.1-47.1.105-installer.jar"}},"forge":{"26.3":{"recommended":null,"latest":"66.0.9","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/26.3-66.0.9/forge-26.3-66.0.9-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/26.3-66.0.9/forge-26.3-66.0.9-installer.jar"}},"26.2":{"recommended":"65.1.0","latest":"65.1.3","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/26.2-65.1.0/forge-26.2-65.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/26.2-65.1.0/forge-26.2-65.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/26.2-65.1.3/forge-26.2-65.1.3-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/26.2-65.1.3/forge-26.2-65.1.3-installer.jar"}},"26.1.2":{"recommended":"64.1.0","latest":"64.1.3","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/26.1.2-64.1.0/forge-26.1.2-64.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/26.1.2-64.1.0/forge-26.1.2-64.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/26.1.2-64.1.3/forge-26.1.2-64.1.3-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/26.1.2-64.1.3/forge-26.1.2-64.1.3-installer.jar"}},"1.21.11":{"recommended":"61.2.0","latest":"61.2.1","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.11-61.2.0/forge-1.21.11-61.2.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.11-61.2.0/forge-1.21.11-61.2.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.11-61.2.1/forge-1.21.11-61.2.1-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.11-61.2.1/forge-1.21.11-61.2.1-installer.jar"}},"1.21.10":{"recommended":"60.1.0","latest":"60.1.15","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.10-60.1.0/forge-1.21.10-60.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.10-60.1.0/forge-1.21.10-60.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.10-60.1.15/forge-1.21.10-60.1.15-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.10-60.1.15/forge-1.21.10-60.1.15-installer.jar"}},"1.21.8":{"recommended":"58.1.0","latest":"58.1.22","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.8-58.1.0/forge-1.21.8-58.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.8-58.1.0/forge-1.21.8-58.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.8-58.1.22/forge-1.21.8-58.1.22-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.8-58.1.22/forge-1.21.8-58.1.22-installer.jar"}},"1.21.7":{"recommended":null,"latest":"57.0.3","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.7-57.0.3/forge-1.21.7-57.0.3-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.7-57.0.3/forge-1.21.7-57.0.3-installer.jar"}},"1.21.6":{"recommended":null,"latest":"56.0.9","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.6-56.0.9/forge-1.21.6-56.0.9-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.6-56.0.9/forge-1.21.6-56.0.9-installer.jar"}},"1.21.5":{"recommended":"55.1.0","latest":"55.1.14","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.5-55.1.0/forge-1.21.5-55.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.5-55.1.0/forge-1.21.5-55.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.5-55.1.14/forge-1.21.5-55.1.14-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.5-55.1.14/forge-1.21.5-55.1.14-installer.jar"}},"1.21.4":{"recommended":"54.1.14","latest":"54.1.18","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.4-54.1.14/forge-1.21.4-54.1.14-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.4-54.1.14/forge-1.21.4-54.1.14-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.4-54.1.18/forge-1.21.4-54.1.18-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.4-54.1.18/forge-1.21.4-54.1.18-installer.jar"}},"1.21.3":{"recommended":"53.1.0","latest":"53.1.12","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.3-53.1.0/forge-1.21.3-53.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.3-53.1.0/forge-1.21.3-53.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.3-53.1.12/forge-1.21.3-53.1.12-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.3-53.1.12/forge-1.21.3-53.1.12-installer.jar"}},"1.21.1":{"recommended":"52.1.0","latest":"52.1.16","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.1-52.1.0/forge-1.21.1-52.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.1-52.1.0/forge-1.21.1-52.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.1-52.1.16/forge-1.21.1-52.1.16-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21.1-52.1.16/forge-1.21.1-52.1.16-installer.jar"}},"1.21":{"recommended":null,"latest":"51.0.33","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.21-51.0.33/forge-1.21-51.0.33-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.21-51.0.33/forge-1.21-51.0.33-installer.jar"}},"1.20.6":{"recommended":"50.2.0","latest":"50.2.10","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.6-50.2.0/forge-1.20.6-50.2.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.6-50.2.0/forge-1.20.6-50.2.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.6-50.2.10/forge-1.20.6-50.2.10-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.6-50.2.10/forge-1.20.6-50.2.10-installer.jar"}},"1.20.4":{"recommended":"49.2.0","latest":"49.2.8","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.4-49.2.0/forge-1.20.4-49.2.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.4-49.2.0/forge-1.20.4-49.2.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.4-49.2.8/forge-1.20.4-49.2.8-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.4-49.2.8/forge-1.20.4-49.2.8-installer.jar"}},"1.20.3":{"recommended":null,"latest":"49.0.2","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.3-49.0.2/forge-1.20.3-49.0.2-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.3-49.0.2/forge-1.20.3-49.0.2-installer.jar"}},"1.20.2":{"recommended":"48.1.0","latest":"48.1.0","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-installer.jar"}},"1.20.1":{"recommended":"47.4.10","latest":"47.4.26","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.10/forge-1.20.1-47.4.10-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.1-47.4.10/forge-1.20.1-47.4.10-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.26/forge-1.20.1-47.4.26-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.1-47.4.26/forge-1.20.1-47.4.26-installer.jar"}},"1.20":{"recommended":null,"latest":"46.0.14","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.20-46.0.14/forge-1.20-46.0.14-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20-46.0.14/forge-1.20-46.0.14-installer.jar"}},"1.19.4":{"recommended":"45.4.0","latest":"45.4.5","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.4-45.4.0/forge-1.19.4-45.4.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.4-45.4.0/forge-1.19.4-45.4.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.4-45.4.5/forge-1.19.4-45.4.5-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.4-45.4.5/forge-1.19.4-45.4.5-installer.jar"}},"1.19.3":{"recommended":"44.1.0","latest":"44.1.23","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.3-44.1.0/forge-1.19.3-44.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.3-44.1.0/forge-1.19.3-44.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.3-44.1.23/forge-1.19.3-44.1.23-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.3-44.1.23/forge-1.19.3-44.1.23-installer.jar"}},"1.19.2":{"recommended":"43.5.0","latest":"43.5.2","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.2-43.5.0/forge-1.19.2-43.5.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.2-43.5.0/forge-1.19.2-43.5.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.2-43.5.2/forge-1.19.2-43.5.2-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.2-43.5.2/forge-1.19.2-43.5.2-installer.jar"}},"1.19.1":{"recommended":null,"latest":"42.0.9","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19.1-42.0.9/forge-1.19.1-42.0.9-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19.1-42.0.9/forge-1.19.1-42.0.9-installer.jar"}},"1.19":{"recommended":"41.1.0","latest":"41.1.0","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19-41.1.0/forge-1.19-41.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19-41.1.0/forge-1.19-41.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.19-41.1.0/forge-1.19-41.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.19-41.1.0/forge-1.19-41.1.0-installer.jar"}},"1.18.2":{"recommended":"40.3.0","latest":"40.3.12","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.18.2-40.3.0/forge-1.18.2-40.3.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.18.2-40.3.0/forge-1.18.2-40.3.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.18.2-40.3.12/forge-1.18.2-40.3.12-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.18.2-40.3.12/forge-1.18.2-40.3.12-installer.jar"}},"1.18.1":{"recommended":"39.1.0","latest":"39.1.2","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.18.1-39.1.0/forge-1.18.1-39.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.18.1-39.1.0/forge-1.18.1-39.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.18.1-39.1.2/forge-1.18.1-39.1.2-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.18.1-39.1.2/forge-1.18.1-39.1.2-installer.jar"}},"1.18":{"recommended":null,"latest":"38.0.17","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.18-38.0.17/forge-1.18-38.0.17-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.18-38.0.17/forge-1.18-38.0.17-installer.jar"}},"1.17.1":{"recommended":"37.1.1","latest":"37.1.1","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.17.1-37.1.1/forge-1.17.1-37.1.1-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.17.1-37.1.1/forge-1.17.1-37.1.1-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.17.1-37.1.1/forge-1.17.1-37.1.1-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.17.1-37.1.1/forge-1.17.1-37.1.1-installer.jar"}},"1.16.5":{"recommended":"36.2.34","latest":"36.2.42","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.5-36.2.34/forge-1.16.5-36.2.34-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.5-36.2.34/forge-1.16.5-36.2.34-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.5-36.2.42/forge-1.16.5-36.2.42-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.5-36.2.42/forge-1.16.5-36.2.42-installer.jar"}},"1.16.4":{"recommended":"35.1.4","latest":"35.1.37","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.4-35.1.4/forge-1.16.4-35.1.4-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.4-35.1.4/forge-1.16.4-35.1.4-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.4-35.1.37/forge-1.16.4-35.1.37-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.4-35.1.37/forge-1.16.4-35.1.37-installer.jar"}},"1.16.3":{"recommended":"34.1.0","latest":"34.1.42","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.3-34.1.0/forge-1.16.3-34.1.0-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.3-34.1.0/forge-1.16.3-34.1.0-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.3-34.1.42/forge-1.16.3-34.1.42-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.3-34.1.42/forge-1.16.3-34.1.42-installer.jar"}},"1.16.2":{"recommended":null,"latest":"33.0.61","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.2-33.0.61/forge-1.16.2-33.0.61-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.2-33.0.61/forge-1.16.2-33.0.61-installer.jar"}},"1.16.1":{"recommended":null,"latest":"32.0.108","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.1-32.0.108/forge-1.16.1-32.0.108-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.16.1-32.0.108/forge-1.16.1-32.0.108-installer.jar"}},"1.15.2":{"recommended":"31.2.57","latest":"31.2.62","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.15.2-31.2.57/forge-1.15.2-31.2.57-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.15.2-31.2.57/forge-1.15.2-31.2.57-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.15.2-31.2.62/forge-1.15.2-31.2.62-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.15.2-31.2.62/forge-1.15.2-31.2.62-installer.jar"}},"1.15.1":{"recommended":null,"latest":"30.0.51","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.15.1-30.0.51/forge-1.15.1-30.0.51-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.15.1-30.0.51/forge-1.15.1-30.0.51-installer.jar"}},"1.15":{"recommended":null,"latest":"29.0.4","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.15-29.0.4/forge-1.15-29.0.4-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.15-29.0.4/forge-1.15-29.0.4-installer.jar"}},"1.14.4":{"recommended":"28.2.26","latest":"28.2.30","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.14.4-28.2.26/forge-1.14.4-28.2.26-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.14.4-28.2.26/forge-1.14.4-28.2.26-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.14.4-28.2.30/forge-1.14.4-28.2.30-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.14.4-28.2.30/forge-1.14.4-28.2.30-installer.jar"}},"1.14.3":{"recommended":null,"latest":"27.0.60","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.14.3-27.0.60/forge-1.14.3-27.0.60-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.14.3-27.0.60/forge-1.14.3-27.0.60-installer.jar"}},"1.14.2":{"recommended":null,"latest":"26.0.63","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.14.2-26.0.63/forge-1.14.2-26.0.63-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.14.2-26.0.63/forge-1.14.2-26.0.63-installer.jar"}},"1.13.2":{"recommended":null,"latest":"25.0.223","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.13.2-25.0.223/forge-1.13.2-25.0.223-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.13.2-25.0.223/forge-1.13.2-25.0.223-installer.jar"}},"1.12.2":{"recommended":"14.23.5.2859","latest":"14.23.5.2864","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2859/forge-1.12.2-14.23.5.2859-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12.2-14.23.5.2859/forge-1.12.2-14.23.5.2859-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2864/forge-1.12.2-14.23.5.2864-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12.2-14.23.5.2864/forge-1.12.2-14.23.5.2864-installer.jar"}},"1.12.1":{"recommended":"14.22.1.2478","latest":"14.22.1.2485","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.1-14.22.1.2478/forge-1.12.1-14.22.1.2478-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12.1-14.22.1.2478/forge-1.12.1-14.22.1.2478-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.1-14.22.1.2485/forge-1.12.1-14.22.1.2485-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12.1-14.22.1.2485/forge-1.12.1-14.22.1.2485-installer.jar"}},"1.12":{"recommended":"14.21.1.2387","latest":"14.21.1.2443","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12-14.21.1.2387/forge-1.12-14.21.1.2387-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12-14.21.1.2387/forge-1.12-14.21.1.2387-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.12-14.21.1.2443/forge-1.12-14.21.1.2443-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.12-14.21.1.2443/forge-1.12-14.21.1.2443-installer.jar"}},"1.11.2":{"recommended":"13.20.1.2588","latest":"13.20.1.2588","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.11.2-13.20.1.2588/forge-1.11.2-13.20.1.2588-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.11.2-13.20.1.2588/forge-1.11.2-13.20.1.2588-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.11.2-13.20.1.2588/forge-1.11.2-13.20.1.2588-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.11.2-13.20.1.2588/forge-1.11.2-13.20.1.2588-installer.jar"}},"1.11":{"recommended":"13.19.1.2189","latest":"13.19.1.2199","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.11-13.19.1.2189/forge-1.11-13.19.1.2189-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.11-13.19.1.2189/forge-1.11-13.19.1.2189-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.11-13.19.1.2199/forge-1.11-13.19.1.2199-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.11-13.19.1.2199/forge-1.11-13.19.1.2199-installer.jar"}},"1.10.2":{"recommended":"12.18.3.2511","latest":"12.18.3.2511","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.10.2-12.18.3.2511/forge-1.10.2-12.18.3.2511-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.10.2-12.18.3.2511/forge-1.10.2-12.18.3.2511-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.10.2-12.18.3.2511/forge-1.10.2-12.18.3.2511-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.10.2-12.18.3.2511/forge-1.10.2-12.18.3.2511-installer.jar"}},"1.10":{"recommended":null,"latest":"12.18.0.2000","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.10-12.18.0.2000/forge-1.10-12.18.0.2000-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.10-12.18.0.2000/forge-1.10-12.18.0.2000-installer.jar"}},"1.9.4":{"recommended":"12.17.0.2317","latest":"12.17.0.2317","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.9.4-12.17.0.2317/forge-1.9.4-12.17.0.2317-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.9.4-12.17.0.2317/forge-1.9.4-12.17.0.2317-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.9.4-12.17.0.2317/forge-1.9.4-12.17.0.2317-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.9.4-12.17.0.2317/forge-1.9.4-12.17.0.2317-installer.jar"}},"1.9":{"recommended":"12.16.1.1887","latest":"12.16.1.1938","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.9-12.16.1.1887/forge-1.9-12.16.1.1887-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.9-12.16.1.1887/forge-1.9-12.16.1.1887-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.9-12.16.1.1938/forge-1.9-12.16.1.1938-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.9-12.16.1.1938/forge-1.9-12.16.1.1938-installer.jar"}},"1.8.9":{"recommended":"11.15.1.2318","latest":"11.15.1.2318","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.8.9-11.15.1.2318/forge-1.8.9-11.15.1.2318-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.8.9-11.15.1.2318/forge-1.8.9-11.15.1.2318-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.8.9-11.15.1.2318/forge-1.8.9-11.15.1.2318-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.8.9-11.15.1.2318/forge-1.8.9-11.15.1.2318-installer.jar"}},"1.8.8":{"recommended":null,"latest":"11.15.0.1655","rec":null,"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.8.8-11.15.0.1655/forge-1.8.8-11.15.0.1655-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.8.8-11.15.0.1655/forge-1.8.8-11.15.0.1655-installer.jar"}},"1.7.10":{"recommended":"10.13.4.1614","latest":"10.13.4.1614","rec":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.7.10-10.13.4.1614/forge-1.7.10-10.13.4.1614-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.7.10-10.13.4.1614/forge-1.7.10-10.13.4.1614-installer.jar"},"lato":{"official":"https://maven.minecraftforge.net/net/minecraftforge/forge/1.7.10-10.13.4.1614/forge-1.7.10-10.13.4.1614-installer.jar","mirror":"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.7.10-10.13.4.1614/forge-1.7.10-10.13.4.1614-installer.jar"}}},"_order":["26.3","26.2","26.1.2","1.21.11","1.21.10","1.21.8","1.21.7","1.21.6","1.21.5","1.21.4","1.21.3","1.21.1","1.21","1.20.6","1.20.5","1.20.4","1.20.3","1.20.2","1.20.1","1.20","1.19.4","1.19.3","1.19.2","1.19.1","1.19","1.18.2","1.18.1","1.18","1.17.1","1.17","1.16.5","1.16.4","1.16.3","1.16.2","1.16.1","1.15.2","1.15.1","1.15","1.14.4","1.14.3","1.14.2","1.13.2","1.13.1","1.12.2","1.12.1","1.12","1.11.2","1.11","1.10.2","1.10","1.9.4","1.9","1.8.9","1.8.8","1.7.10"],"_java":{"26.3":25,"26.2":25,"26.1.2":25,"1.21.11":21,"1.21.10":21,"1.21.8":21,"1.21.7":21,"1.21.6":21,"1.21.5":21,"1.21.4":21,"1.21.3":21,"1.21.1":21,"1.21":21,"1.20.6":21,"1.20.5":21,"1.20.4":17,"1.20.3":17,"1.20.2":17,"1.20.1":17,"1.20":17,"1.19.4":17,"1.19.3":17,"1.19.2":17,"1.19.1":17,"1.19":17,"1.18.2":17,"1.18.1":17,"1.18":17,"1.17.1":17,"1.17":17,"1.16.5":8,"1.16.4":8,"1.16.3":8,"1.16.2":8,"1.16.1":8,"1.15.2":8,"1.15.1":8,"1.15":8,"1.14.4":8,"1.14.3":8,"1.14.2":8,"1.13.2":8,"1.13.1":8,"1.12.2":8,"1.12.1":8,"1.12":8,"1.11.2":8,"1.11":8,"1.10.2":8,"1.10":8,"1.9.4":8,"1.9":8,"1.8.9":8,"1.8.8":8,"1.7.10":8}};
+
+/* ===== 版本与 Java 需求 ===== */
+const _REC = {
+  "1.21.11":"当前最稳的正式版，插件与模组支持都成熟",
+  "1.21.1":"模组生态最完整的 1.21 版本，大型整合包首选",
+  "1.20.1":"Forge 模组库最大，老整合包几乎都在这个版本"
+};
+function _grp(v){
+  if (/^26\./.test(v)) return "26.x 新版版本号";
+  const m = /^1\.(\d+)/.exec(v);
+  if (!m) return "其它";
+  const n = +m[1];
+  if (n <= 16) return "1.16 及更早 · 需要 Java 8";
+  return "1." + n + " 系列";
+}
+// 版本列表完全来自实测数据，不再硬编码
+const VERSIONS = (L._order || []).map(function(id){
+  return { id:id, java:(L._java||{})[id], g:_grp(id), rec:!!_REC[id], note:_REC[id] };
+});
+
+/* ===== 运行环境 ===== */
+const ENVS = {
+  termux:{ n:"Android · Termux 原生", tag:"推荐",
+    d:"直接跑在 Termux 里，无额外虚拟化开销。官方仓库提供 openjdk-17 / 21 / 25（含 arm64）。" },
+  proot:{ n:"Android · proot 发行版（Ubuntu/Debian）",
+    d:"在 Termux 上用 proot-distro 装的完整 Linux。软件包最全，但系统调用经转发，性能略低于原生。" },
+  linux:{ n:"Linux 电脑 / 云服务器",
+    d:"x86_64 或 arm64 的常规 Linux，用发行版包管理器安装 Java。" },
+  windows:{ n:"Windows 电脑",
+    d:"使用 Adoptium Temurin 或 winget 安装 Java，用 PowerShell 下载并启动。" },
+  macos:{ n:"macOS 电脑",
+    d:"使用 Homebrew 安装 Java，命令与 Linux 基本一致。" }
+};
+
+/* ===== 服务端类型 ===== */
+const LOADERS = {
+  paper:{ n:"Paper", tag:"推荐 · 开原版服首选", cls:"rec",
+    d:"基于原版的优化服务端，性能明显更好，支持 Bukkit/Spigot 插件生态。不支持模组。",
+    supports: () => true,
+    rows: v => L.paper[v] ? [
+      { k:"服务端 jar（官方直链）", url:L.paper[v].url,
+        sub:`${L.paper[v].file} · ${L.paper[v].mb} MB · build ${L.paper[v].build} · ${L.paper[v].channel}`, sha:L.paper[v].sha256 },
+      { k:"服务端 jar（国内镜像）", none:"Paper 官方与 BMCLAPI 均未提供国内镜像。fill-data.papermc.io 走 Cloudflare，多数网络可直接下载。建议用支持断点的下载工具。" },
+      { k:"获取最新构建（API）", url:`https://fill.papermc.io/v3/projects/paper/versions/${v}/builds/latest`, sub:"返回 JSON，含最新构建的下载地址" }
+    ] : [] },
+  vanilla:{ n:"Vanilla 原版", tag:"纯净",
+    d:"Mojang 官方原版服务端。无插件无模组，性能一般，适合只想要原汁原味且人少的场景。",
+    supports: () => true,
+    rows: v => {
+      const o = L.vanilla[v] || {}, out = [];
+      if (o.official) out.push({ k:"服务端 jar（官方直链）", url:o.official, sub:`server.jar · ${o.mb} MB · sha1 已采集`, sha1:o.sha1 });
+      out.push({ k:"服务端 jar（国内镜像）", url:o.mirror, sub:"BMCLAPI 直链，点击即开始下载" });
+      out.push({ k:"官方版本清单", url:"https://piston-meta.mojang.com/mc/game/version_manifest_v2.json", sub:"需要自行解析出 server.jar 地址" });
+      return out;
+    } },
+  fabric:{ n:"Fabric", tag:"轻量模组",
+    d:"加载快、跟随新版本及时，适合优化模组与轻量整合。模组需双方都装。",
+    supports: () => true,
+    rows: v => L.fabric[v] ? [
+      { k:"服务端 jar（官方直链）", url:L.fabric[v].url,
+        sub:`loader ${L.fabric[v].loader} + installer ${L.fabric[v].installer} · 该组合已核对可用` },
+      { k:"服务端 jar（国内镜像）", none:"BMCLAPI 只镜像 Fabric 的元数据 JSON，不镜像服务端 jar（实测 404）。可用官方直链，或先下好再传入设备。" },
+      { k:"Loader 版本列表", url:`https://meta.fabricmc.net/v2/versions/loader/${v}`, sub:"查询该 MC 版本可用的所有 loader 版本" },
+      { k:"Installer 版本列表", url:"https://meta.fabricmc.net/v2/versions/installer", sub:"查询最新 installer 版本" }
+    ] : [] },
+  neoforge:{ n:"NeoForge", tag:"现代模组",
+    d:"1.20.2 之后的主流模组加载器，新整合包多基于它。需要运行安装器生成启动文件。",
+    supports: v => ["26.3","26.2","26.1.2","1.21.11","1.21.8","1.21.4","1.21.1","1.20.6","1.20.4"].includes(v),
+    rows: v => {
+      const o = L.neoforge[v]; if (!o) return [];
+      return [
+        { k:`安装器${o.beta?"（仅 beta）":""}`, url:o.official, sub:`neoforge-${o.version}-installer.jar${o.beta?" · 该版本暂无正式版":""}` },
+        { k:"安装器（国内镜像）", url:o.mirror, sub:"BMCLAPI maven 镜像" },
+        { k:"版本列表", url:`https://bmclapi2.bangbang93.com/neoforge/list/${v}`, sub:"查询该 MC 版本的全部 NeoForge 版本" }
+      ];
+    } },
+  forge:{ n:"Forge", tag:"老牌模组",
+    d:"历史最久、老版本模组最全。1.20.1 及以前的大型整合包基本都用它。",
+    supports: v => ["1.21.11","1.21.8","1.21.4","1.21.1","1.20.6","1.20.4","1.20.1","1.19.4","1.18.2","1.16.5","1.12.2"].includes(v),
+    rows: v => {
+      const o = L.forge[v]; if (!o) return [];
+      const out = [];
+      if (o.rec) out.push({ k:"安装器 · 推荐版", url:o.rec.official, sub:`forge-${v}-${o.recommended}-installer.jar · 稳定优先，模组兼容性最好` });
+      if (o.lato) out.push({ k:"安装器 · 最新版", url:o.lato.official, sub:`forge-${v}-${o.latest}-installer.jar · 含最新修复，可能有个别模组未适配` });
+      const m = o.rec ? o.rec : o.lato;
+      if (m) out.push({ k:"安装器（国内镜像）", url:m.mirror, sub:"BMCLAPI maven 镜像" });
+      out.push({ k:"官方版本说明", url:`https://files.minecraftforge.net/net/minecraftforge/forge/index_${v}.html`, sub:"查看各版本的 recommended / latest 标记" });
+      return out;
+    } }
+};
+
+// 各服务端是否支持某版本，完全由实测数据决定（不再手写支持列表）
+Object.keys(LOADERS).forEach(function(k){
+  LOADERS[k].supports = function(v){ return !!(L[k] && L[k][v]); };
+});
+
+/* ===== 状态 ===== */
+const S = { env:"termux", mem:2, loader:"paper", ver:"1.21.11", devMem:0 };
+
+/* ===== 设备探测（针对访问者本机，不含任何预设立场） ===== */
+(function detect(){
+  const ua = navigator.userAgent || "";
+  const mem = navigator.deviceMemory || 0;
+  const cores = navigator.hardwareConcurrency || 0;
+  const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
+  const win = /Windows/i.test(ua), mac = /Macintosh|Mac OS X/i.test(ua);
+  S.devMem = mem || 8;
+
+  const b = [];
+  b.push(`<span class="badge ${android?"ok":""}">${android?"Android":ios?"iOS":win?"Windows":mac?"macOS":"未知系统"}</span>`);
+  if (mem) b.push(`<span class="badge">浏览器上报内存约 ${mem} GB</span>`);
+  if (cores) b.push(`<span class="badge">${cores} 核 CPU</span>`);
+  b.push(`<span class="badge">屏幕 ${screen.width}×${screen.height}</span>`);
+  b.push(`<span class="badge warn">本页命令按你选择的配置生成，与具体机型无关</span>`);
+  document.getElementById("detect").innerHTML = b.join("");
+
+  if (win) S.env = "windows"; else if (mac) S.env = "macos";
+  else if (!android && !ios) S.env = "linux";
+
+  S.mem = Math.max(1, Math.min(4, mem ? Math.round(mem/4*2)/2 : 2));
+})();
+
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const V = id => VERSIONS.find(x => x.id === id);
+
+/* ===== 推荐引擎：只依据内存档位，不依赖任何具体设备 ===== */
+function recommend(){
+  const m = S.mem, a = S.env !== "windows" && S.env !== "macos";
+  if (m <= 1.5) return { loader:"paper", ver:"1.21.11",
+    why:`${m} GB 内存适合 1~3 人的原版服。Paper 比原版省资源，还能装插件加保护。` };
+  if (m <= 3)   return { loader:"paper", ver:"1.21.11",
+    why:`${m} GB 可稳定支撑 3~8 人原版联机，或 2~4 人装少量 Fabric 模组。先用 Paper 起步最省心。` };
+  if (m <= 5)   return { loader:"fabric", ver:"1.21.1",
+    why:`${m} GB 够跑中型模组整合。Fabric 1.21.1 模组生态完整、内存开销比 Forge 小。` };
+  return { loader:"neoforge", ver:"1.21.1",
+    why:`${m} GB 属于宽裕配置，可以上大型整合包。NeoForge 1.21.1 是当前新整合包的主流选择；若你要玩的老整合包基于 Forge，改选 Forge 1.20.1。` };
+}
+
+function jvmFlags(mem){
+  return ["-Xms"+mem+"G","-Xmx"+mem+"G",
+    "-XX:+UseG1GC","-XX:+ParallelRefProcEnabled","-XX:MaxGCPauseMillis=200",
+    "-XX:+DisableExplicitGC","-XX:+AlwaysPreTouch","-XX:G1NewSizePercent=30",
+    "-XX:G1MaxNewSizePercent=40","-XX:G1HeapRegionSize=8M","-XX:G1ReservePercent=20",
+    "-XX:G1HeapWastePercent=5","-XX:InitiatingHeapOccupancyPercent=15",
+    "-XX:SurvivorRatio=32","-XX:MaxTenuringThreshold=1",
+    "-Dusing.aikars.flags=https://mcflags.emc.gs","-Daikars.new.flags=true"].join(" ");
+}
+
+const JAVA_PKG = {
+  termux:{8:null,17:"openjdk-17",21:"openjdk-21",25:"openjdk-25"},
+  proot:{8:"openjdk-8-jre-headless",17:"openjdk-17-jre-headless",21:"openjdk-21-jre-headless",25:"openjdk-25-jre-headless"},
+  linux:{8:"openjdk-8-jre-headless",17:"openjdk-17-jre-headless",21:"openjdk-21-jre-headless",25:"openjdk-25-jre-headless"},
+  windows:null, macos:null
+};
+const DATADIR = { termux:"$HOME/mc", proot:"$HOME/mc", linux:"$HOME/mc", windows:"$HOME\\mc", macos:"$HOME/mc" };
+const NL = { termux:"\n", proot:"\n", linux:"\n", windows:"\r\n", macos:"\n" };
+
+/* ===== 各步骤命令生成 ===== */
+function step1(){
+  const j = V(S.ver).java, env = S.env, o = [];
+  if (env === "termux"){
+    if (!JAVA_PKG.termux[j]){
+      o.push("# Termux 官方仓库不提供 Java 8，无法运行该版本。");
+      o.push("# 请改用「Android · proot 发行版」或 Linux 环境，或把版本改到 1.18 以上。");
+    } else {
+      o.push("# 更新包列表并安装 Java " + j);
+      o.push("pkg update -y");
+      o.push("pkg install -y " + JAVA_PKG.termux[j] + " curl");
+      o.push("");
+      o.push("# 防止息屏后服务被系统挂起（Termux 专属）");
+      o.push("termux-wake-lock");
+    }
+  } else if (env === "proot"){
+    o.push("# 更新包列表并安装 Java " + j);
+    o.push("apt-get update");
+    o.push("apt-get install -y " + JAVA_PKG.proot[j] + " curl");
+    o.push("");
+    o.push("# 注意：唤醒锁只能在 Termux 外层加，proot 内部无法执行");
+    o.push("# 请在 Termux 里先运行： termux-wake-lock");
+  } else if (env === "linux"){
+    o.push("# Debian / Ubuntu 系");
+    o.push("sudo apt-get update");
+    o.push("sudo apt-get install -y " + JAVA_PKG.linux[j] + " curl");
+    o.push("");
+    o.push("# Fedora / RHEL 系改用：");
+    o.push("# sudo dnf install -y java-" + j + "-openjdk-headless curl");
+  } else if (env === "windows"){
+    o.push("# 方式一：winget（Windows 10 1809+ 自带）");
+    o.push("winget install --id EclipseAdoptium.Temurin." + j + ".JRE -e");
+    o.push("");
+    o.push("# 方式二：直接下载安装包（推荐，最不容易出错）");
+    o.push("# 64 位 Intel / AMD 处理器：");
+    o.push("# https://api.adoptium.net/v3/binary/latest/" + j + "/ga/windows/x64/jre/hotspot/normal/eclipse");
+    if (j === 25){
+      o.push("# ARM64 Windows（骁龙本等）目前没有 Java 25 安装包，");
+      o.push("# 请到这个页面按架构挑选： https://adoptium.net/temurin/releases/?version=25");
+    } else {
+      o.push("# ARM64 Windows（骁龙本等）：");
+      o.push("# https://api.adoptium.net/v3/binary/latest/" + j + "/ga/windows/aarch64/jre/hotspot/normal/eclipse");
+    }
+    o.push("");
+    o.push("# 装完必须重开一个新的 PowerShell 窗口，java 命令才会生效");
+  } else {
+    o.push("# 安装 Homebrew（若尚未安装）");
+    o.push('# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"');
+    o.push("");
+    o.push("brew install openjdk@" + j);
+    o.push("");
+    o.push("# Homebrew 装的 Java 不在系统路径里，需要手动加入：");
+    o.push('echo \'export PATH="/opt/homebrew/opt/openjdk@' + j + '/bin:$PATH"\' >> ~/.zshrc');
+    o.push("source ~/.zshrc");
+  }
+  return o.join(NL[env]);
+}
+
+function step1check(){
+  const env = S.env;
+  if (env === "windows") return "java -version\r\n\r\n# 如果提示找不到命令，关掉当前窗口重新开一个 PowerShell";
+  return "java -version\n\n# 期望看到 openjdk version \"" + V(S.ver).java + ".x\"";
+}
+
+function step2(){
+  const env = S.env, j = V(S.ver).java, o = [];
+  const DL = v => `https://fill.papermc.io/v3/projects/paper/versions/${v}/builds/latest`;
+
+  if (env === "windows"){
+    o.push("# 进入用户目录并创建服务器文件夹（已存在也不会报错）");
+    o.push('Set-Location $HOME');
+    o.push('New-Item -ItemType Directory -Force -Path "mc" | Out-Null');
+    o.push('Set-Location "mc"');
+    o.push("");
+    if (S.loader === "paper"){
+      o.push("# 取最新构建地址");
+      o.push(`$API = "${DL(S.ver)}"`);
+      o.push("$j = Invoke-RestMethod -Uri $API");
+      o.push('$url = $j.downloads."server:default".url');
+      o.push('$name = $j.downloads."server:default".name');
+      o.push('Write-Host "最新构建: $name"');
+      o.push('Invoke-WebRequest -Uri $url -OutFile server.jar');
+    } else if (S.loader === "vanilla"){
+      o.push('Invoke-WebRequest -Uri "' + (L.vanilla[S.ver]||{}).mirror + '" -OutFile server.jar');
+    } else if (S.loader === "fabric"){
+      o.push('Invoke-WebRequest -Uri "' + (L.fabric[S.ver]||{}).url + '" -OutFile server.jar');
+    } else {
+      const r = S.loader === "neoforge" ? (L.neoforge[S.ver]||{}).official : ((L.forge[S.ver]||{}).rec||{}).official;
+      o.push('Invoke-WebRequest -Uri "' + r + '" -OutFile installer.jar');
+      o.push("java -jar installer.jar --installServer");
+    }
+    return o.join("\r\n");
+  }
+
+  o.push("mkdir -p " + DATADIR[env] + " && cd " + DATADIR[env]);
+  o.push("");
+  if (S.loader === "paper"){
+    o.push("# 从官方 Fill API 解析当前最新构建（旧的 api.papermc.io/v2 已停止服务）");
+    o.push(`API="${DL(S.ver)}"`);
+    o.push('URL=$(curl -sL "$API" | grep -oE \'"url"[[:space:]]*:[[:space:]]*"[^"]*"\' | head -1 | cut -d\'"\' -f4)');
+    o.push('NAME=$(curl -sL "$API" | grep -oE \'"name"[[:space:]]*:[[:space:]]*"[^"]*"\' | head -1 | cut -d\'"\' -f4)');
+    o.push('echo "最新构建: $NAME"');
+    o.push('[ -z "$URL" ] && echo "解析失败，请用下方直链表手动下载" && exit 1');
+    o.push('curl -L --retry 3 -C - -o server.jar "$URL"');
+  } else if (S.loader === "vanilla"){
+    o.push("# BMCLAPI 国内镜像（Mojang 官方源在国内常超时）");
+    o.push(`curl -L --retry 3 -C - -o server.jar "${(L.vanilla[S.ver]||{}).mirror}"`);
+  } else if (S.loader === "fabric"){
+    o.push("# Fabric 需要 loader 与 installer 版本，从官方 meta 动态解析");
+    o.push('LOADER=$(curl -sL "https://meta.fabricmc.net/v2/versions/loader/' + S.ver + '" | grep -oE \'"version"[[:space:]]*:[[:space:]]*"[^"]*"\' | head -1 | sed \'s/.*"\\([^"]*\\)"$/\\1/\')');
+    o.push('INST=$(curl -sL "https://meta.fabricmc.net/v2/versions/installer" | grep -oE \'"version"[[:space:]]*:[[:space:]]*"[^"]*"\' | head -1 | sed \'s/.*"\\([^"]*\\)"$/\\1/\')');
+    o.push('echo "loader=$LOADER installer=$INST"');
+    o.push('[ -z "$LOADER" ] && echo "解析失败，请用下方直链表手动下载" && exit 1');
+    o.push('curl -L --retry 3 -C - -o server.jar \\');
+    o.push(`  "https://meta.fabricmc.net/v2/versions/loader/${S.ver}/$LOADER/$INST/server/jar"`);
+  } else {
+    const inst = S.loader === "neoforge" ? (L.neoforge[S.ver]||{}) : ((L.forge[S.ver]||{}).rec || {});
+    o.push("# " + LOADERS[S.loader].n + " 通过安装器生成启动环境");
+    o.push('curl -L --retry 3 -C - -o installer.jar \\');
+    o.push(`  "${inst.official}"`);
+    o.push("");
+    o.push("# 若官方 maven 太慢，可换成国内镜像：");
+    o.push("# " + inst.mirror);
+    o.push("");
+    o.push("java -jar installer.jar --installServer");
+    o.push("# 安装完成后会生成 run.sh，启动方式见第 4 步");
+  }
+  return o.join(NL[env]);
+}
+
+function step2check(){
+  const env = S.env;
+  if (S.loader === "forge" || S.loader === "neoforge"){
+    return env === "windows"
+      ? "Get-ChildItem installer.jar | Select-Object Name,Length"
+      : "ls -lh installer.jar\n# 安装器约 5~10 MB；若只有几 KB，说明下载到的是错误页面";
+  }
+  const sha = S.loader === "paper" && L.paper[S.ver] ? L.paper[S.ver].sha256
+            : (S.loader === "vanilla" && (L.vanilla[S.ver]||{}).sha1) ? L.vanilla[S.ver].sha1 : null;
+  if (env === "windows"){
+    return "Get-FileHash server.jar -Algorithm " + (S.loader==="vanilla"?"SHA1":"SHA256") + "\r\n"
+      + (sha ? "# 期望值:\r\n# " + sha : "# 与下方直链表中的校验值比对");
+  }
+  const cmd = S.loader === "vanilla" ? "sha1sum" : "sha256sum";
+  return "ls -lh server.jar\n"
+    + cmd + " server.jar\n"
+    + (sha ? "# 期望值:\n# " + sha : "# 与下方直链表中的校验值比对");
+}
+
+function step3(){
+  const env = S.env, o = [], q = env === "windows" ? '"' : "'";
+  const p = [
+    "motd=我的 Minecraft 服务器 " + S.ver,
+    "server-port=25565",
+    "online-mode=true",
+    "max-players=" + (S.mem <= 1.5 ? 5 : S.mem <= 3 ? 10 : 20),
+    "view-distance=" + (S.mem <= 1.5 ? 5 : S.mem <= 3 ? 6 : 8),
+    "simulation-distance=" + (S.mem <= 1.5 ? 4 : S.mem <= 3 ? 5 : 6),
+    "spawn-protection=0",
+    "allow-flight=true",
+    "enable-command-block=true",
+    "difficulty=easy",
+    "white-list=false"
+  ];
+  if (env === "windows"){
+    o.push('# 同意许可协议');
+    o.push('Set-Content -Path eula.txt -Value "eula=true" -Encoding ascii');
+    o.push("");
+    o.push("# 写入基础配置");
+    o.push("$cfg = @(" + NL.windows + p.map(x => '  "' + x + '"').join(NL.windows) + NL.windows + ")");
+    o.push("# 必须写成「不带 BOM 的 UTF-8」：PowerShell 自带的 utf8 会加 BOM，");
+    o.push("# 导致 server.properties 第一行键名被破坏，中文 motd 也会变成乱码。");
+    o.push('$utf8 = New-Object System.Text.UTF8Encoding $false');
+    o.push('[System.IO.File]::WriteAllLines("$PWD\\server.properties", $cfg, $utf8)');
+    return o.join(NL.windows);
+  }
+  o.push("# 同意 EULA（必须，否则服务端会立刻退出）");
+  o.push('echo "eula=true" > eula.txt');
+  o.push("");
+  o.push("# 写入基础配置（可按需修改）");
+  o.push("cat > server.properties <<'PROP'");
+  p.forEach(x => o.push(x));
+  o.push("PROP");
+  return o.join("\n");
+}
+
+function step4(){
+  const env = S.env, o = [], dir = DATADIR[env], isInst = S.loader === "forge" || S.loader === "neoforge";
+  if (env === "windows"){
+    o.push('# 进入服务器目录（$HOME\\mc）');
+    o.push('Set-Location "$HOME\\mc"');
+    o.push("");
+    if (isInst){
+      o.push("# " + LOADERS[S.loader].n + " 安装器已经生成 run.bat，直接使用它");
+      o.push(".\\run.bat");
+    } else {
+      o.push("# 用 here-string 把启动脚本写入 start.bat（注意 '@ 必须顶格）");
+      o.push("@'");
+      o.push("@echo off");
+      o.push("cd /d %~dp0");
+      o.push("java " + jvmFlags(S.mem) + " -jar server.jar nogui");
+      o.push("pause");
+      o.push("'@ | Set-Content -Path start.bat -Encoding ascii");
+      o.push("");
+      o.push("# 以后双击 start.bat 即可开服；现在先直接运行一次");
+      o.push(".\\start.bat");
+    }
+    o.push("");
+    o.push("# 关闭：在服务器窗口输入 stop 回车，不要直接点右上角关窗口");
+    return o.join("\r\n");
+  }
+  o.push("cd " + dir);
+  o.push("");
+  const shebang = env === "termux"
+    ? "#!/data/data/com.termux/files/usr/bin/bash"
+    : "#!/usr/bin/env bash";
+  o.push("# 生成启动脚本，以后一句 ./start.sh 就能开服");
+  o.push("cat > start.sh <<'SH'");
+  o.push(shebang);
+  o.push('cd "$(dirname "$0")"');
+  o.push(isInst ? "exec ./run.sh nogui" : "exec java " + jvmFlags(S.mem) + " -jar server.jar nogui");
+  o.push("SH");
+  o.push("chmod +x start.sh");
+  o.push("");
+  o.push("# 启动");
+  o.push("bash start.sh");
+  o.push("");
+  o.push("# 关闭：在服务器窗口输入 stop 回车（不要直接关终端）");
+  return o.join("\n");
+}
+
+/* ===== 渲染：配置台 ===== */
+function renderEnv(){
+  const box = document.getElementById("envBox");
+  box.innerHTML = Object.keys(ENVS).map(k => {
+    const e = ENVS[k];
+    return `<div class="opt${S.env===k?" sel":""}" data-env="${k}"><div class="radio"></div>
+      <div style="flex:1"><div class="t">${esc(e.n)}${e.tag?` <span class="tag rec">${esc(e.tag)}</span>`:""}</div>
+      <div class="d">${esc(e.d)}</div></div></div>`;
+  }).join("");
+  box.querySelectorAll("[data-env]").forEach(n => n.onclick = () => { S.env = n.dataset.env; renderAll(); });
+}
+
+function renderLoader(){
+  const box = document.getElementById("loaderBox");
+  box.innerHTML = Object.keys(LOADERS).map(k => {
+    const l = LOADERS[k], ok = l.supports(S.ver);
+    return `<div class="opt${S.loader===k&&ok?" sel":""}${ok?"":" dis"}" data-ld="${k}"><div class="radio"></div>
+      <div style="flex:1"><div class="t">${esc(l.n)}${l.tag?` <span class="tag ${l.cls||"j"}">${esc(l.tag)}</span>`:""}
+      ${ok?"":'<span class="tag no">不支持该版本</span>'}</div>
+      <div class="d">${esc(l.d)}</div></div></div>`;
+  }).join("");
+  box.querySelectorAll("[data-ld]").forEach(n => n.onclick = () => {
+    if (!LOADERS[n.dataset.ld].supports(S.ver)) return;
+    S.loader = n.dataset.ld; renderAll();
+  });
+  document.getElementById("loaderNote").innerHTML = "<b>" + esc(LOADERS[S.loader].n) + "</b>：" + esc(LOADERS[S.loader].d);
+}
+
+function renderVer(){
+  const sel = document.getElementById("ver"), groups = {};
+  VERSIONS.forEach(v => (groups[v.g] = groups[v.g] || []).push(v));
+  sel.innerHTML = Object.keys(groups).map(g =>
+    `<optgroup label="${esc(g)}">` + groups[g].map(v => {
+      const ok = LOADERS[S.loader].supports(v.id);
+      return `<option value="${v.id}"${v.id===S.ver?" selected":""}${ok?"":" disabled"}>`
+        + (v.rec ? "★ " : "") + v.id + "　[需 Java " + v.java + "]" + (ok ? "" : " ✕该加载器不支持") + "</option>";
+    }).join("") + "</optgroup>").join("");
+
+  const v = V(S.ver), j = v.java;
+  document.getElementById("javaNeed").textContent = "Java " + j;
+  let t = `当前选择：<b>MC ${S.ver}</b> · 需要 <b>Java ${j}</b>`;
+  if (v.note) t += " · " + esc(v.note);
+  if (S.env === "termux" && j === 8)
+    t += '<br><span style="color:var(--red)">⚠ Termux 官方仓库不提供 Java 8，该版本请改用 proot 发行版或 Linux 环境，或选择 1.18 以上版本。</span>';
+  const pc = L.paper[S.ver];
+  if (S.loader === "paper" && pc && pc.channel !== "STABLE")
+    t += `<br><span style="color:var(--amber)">⚠ 该版本的 Paper 目前处于 ${esc(pc.channel)} 通道（build ${pc.build}），追求稳定建议选 1.21.11。</span>`;
+  document.getElementById("verNote").innerHTML = t;
+}
+
+function renderMem(){
+  const r = document.getElementById("mem");
+  r.value = S.mem;
+  r.style.setProperty("--pct", ((S.mem - 1) / 15 * 100) + "%");
+  document.getElementById("memVal").textContent = S.mem + " GB";
+
+  const mem = S.mem, dev = S.devMem || 8;
+  let txt;
+  if (mem <= 1.5) txt = `<b>1~1.5 GB</b>：原版小服，约 1~3 人。视距建议 4~5，别装模组。`;
+  else if (mem <= 3) txt = `<b>2~3 GB</b>：原版或轻量模组，约 3~8 人。这是最常见的稳妥区间。`;
+  else if (mem <= 5) txt = `<b>4~5 GB</b>：中型模组整合，约 5~12 人。`;
+  else txt = `<b>${mem} GB</b>：大型整合包或更多人联机，注意设备总内存是否够。`;
+  if (dev && mem > dev * 0.7)
+    txt += `<br><span style="color:var(--red)">⚠ 你选择了 ${mem} GB，但浏览器上报本机内存约 ${dev} GB。`
+        + `给服务器的内存不能超过系统可用量，否则会被系统强制结束进程（日志里表现为无征兆的 Killed）。</span>`;
+  else if (dev)
+    txt += `<br><span style="color:var(--dim2)">参考：本机内存约 ${dev} GB，系统本身也要占用一部分。</span>`;
+  document.getElementById("memNote").innerHTML = txt;
+}
+
+function renderReco(){
+  const r = recommend();
+  document.getElementById("reco").innerHTML =
+    `<span class="lb">按当前内存档位的推荐</span>`
+    + `<b>${esc(LOADERS[r.loader].n)} + MC ${r.ver}</b>（需 Java ${V(r.ver).java}）<br>${esc(r.why)}`
+    + `<br><span style="color:var(--dim2)">点上方「应用推荐配置」一键套用；也可以自己挑加载器和版本。</span>`;
+}
+
+/* ===== 渲染：直链表 ===== */
+function renderLinks(){
+  const rows = LOADERS[S.loader].rows(S.ver), tb = document.getElementById("links");
+  if (!rows.length){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--amber)">该组合暂无数据，请更换版本或加载器。</td></tr>'; return; }
+  tb.innerHTML = rows.map(r => {
+    if (r.none) return `<tr><td>${esc(r.k)}</td><td colspan="2" style="color:var(--amber)">${esc(r.none)}</td></tr>`;
+    const short = r.url.length > 62 ? r.url.slice(0, 62) + "…" : r.url;
+    let sub = "";
+    if (r.sub) sub += `<span class="mini">${esc(r.sub)}</span>`;
+    if (r.sha) sub += `<span class="mono">sha256: ${esc(r.sha)}</span>`;
+    if (r.sha1) sub += `<span class="mono">sha1: ${esc(r.sha1)}</span>`;
+    return `<tr><td>${esc(r.k)}</td>
+      <td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(short)}</a>${sub}</td>
+      <td><button class="cp" data-cp="${esc(r.url)}">复制</button></td></tr>`;
+  }).join("");
+  tb.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => copy(b.dataset.cp));
+}
+
+/* ===== 渲染：联机与其余静态区 ===== */
+function renderOnline(){
+  const env = S.env;
+  const ipcmd = env === "windows" ? "ipconfig" : (env === "macos" ? "ipconfig getifaddr en0" : "ip addr show | grep 'inet '");
+  document.getElementById("online").innerHTML = `
+  <h3>1. 先在开服设备上自测</h3>
+  <div class="box b">打开 Minecraft Java 版 → 多人游戏 → 添加服务器 → 地址填
+    <code>localhost:25565</code>。<br>能进去说明服务端本身没问题，再进行下一步。</div>
+
+  <h3>2. 同一局域网联机</h3>
+  <div class="box"><span class="lb">查看本机内网 IP</span>
+    <pre class="out">${esc(ipcmd)}</pre>
+    找到形如 <code>192.168.x.x</code> 或 <code>10.x.x.x</code> 的地址，告诉朋友在地址栏填
+    <code>那个IP:25565</code>。<br>
+    <b>连不上先查三点：</b>是否同一 WiFi；路由器是否开启了「AP 隔离 / 客户端隔离」；
+    系统防火墙是否拦截了 Java。<br>
+    <b>注意：</b>Java 版只用 <b>TCP 25565</b>，不需要开放 UDP。
+    基岩版（手机版/Windows 商店版）用的是 UDP 19132，且<b>不能</b>连本文搭建的 Java 版服务端。
+  </div>
+
+  <h3>3. 跨网络联机（公网）</h3>
+  <div class="box a"><span class="lb">先搞清楚有没有公网 IP</span>
+    大多数家庭宽带和移动网络没有独立公网 IP，别人无法直接连到你。这是最常见的「朋友连不上」原因。
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>方案</th><th>适合</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>路由器端口映射</td><td>有公网 IP</td><td>在路由器把外部 25565 映射到内网设备。最省资源，但需要运营商给公网 IP</td></tr>
+      <tr><td>playit.gg</td><td>免费、图省事</td><td>提供固定域名，无需公网 IP，有各平台客户端，配置最简单</td></tr>
+      <tr><td>frp / 反向代理</td><td>长期稳定开服</td><td>需要一台有公网 IP 的云服务器中转，最可控</td></tr>
+      <tr><td>商业穿透面板</td><td>不想折腾</td><td>如 Sakura Frp、花生壳，有图形界面，免费版带宽有限</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>4. 安全设置（公网开服必看）</h3>
+  <div class="box r"><span class="lb">⚠️ 三件事必须做</span>
+    <ul>
+      <li><b>保持 <code>online-mode=true</code></b>：关闭正版验证后，任何人都能冒用别人的 ID 进入。</li>
+      <li><b>启用白名单</b>：控制台执行 <code>whitelist on</code>，再 <code>whitelist add 名字</code>。
+        开之前务必先把自己加进去。</li>
+      <li><b>不要裸奔暴露端口</b>：公网扫描非常频繁。优先用白名单 + 强密码的管理插件，
+        并定期备份。一旦被破坏，只有备份能救回来。</li>
+    </ul>
+  </div>`;
+}
+
+/* ===== 着色与工具 ===== */
+function colorize(t){
+  return esc(t).split(/\r?\n/).map(l =>
+    /^\s*#/.test(l) ? `<span class="c">${l}</span>`
+    : l.replace(/^(\s*)([A-Za-z_./$][\w./$-]*)/, (m, sp, c) => sp + `<span class="k">${c}</span>`)
+  ).join("\n");
+}
+function copy(t){
+  const ok = () => toast("已复制");
+  if (navigator.clipboard && window.isSecureContext)
+    navigator.clipboard.writeText(t).then(ok).catch(() => fb(t, ok));
+  else fb(t, ok);
+}
+function fb(t, ok){
+  const a = document.createElement("textarea");
+  a.value = t; a.style.cssText = "position:fixed;top:-1000px;opacity:0";
+  document.body.appendChild(a); a.select();
+  try { document.execCommand("copy"); ok(); } catch(e){ toast("复制失败，请长按选中"); }
+  document.body.removeChild(a);
+}
+let tt;
+function toast(m){
+  const t = document.getElementById("toast");
+  t.textContent = m; t.classList.add("show");
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+/* ===== 总渲染 ===== */
+function renderAll(){
+  renderEnv(); renderLoader(); renderVer(); renderMem(); renderReco(); renderLinks();
+  renderOnline();
+  document.getElementById("s1cmd").innerHTML = colorize(step1());
+  document.getElementById("s1chk").innerHTML = colorize(step1check());
+  document.getElementById("s2cmd").innerHTML = colorize(step2());
+  document.getElementById("s2chk").innerHTML = colorize(step2check());
+  document.getElementById("s3cmd").innerHTML = colorize(step3());
+  document.getElementById("s4cmd").innerHTML = colorize(step4());
+  document.getElementById("s2hint").innerHTML =
+    "当前下载：<b>" + esc(LOADERS[S.loader].n) + " " + S.ver + "</b>。"
+    + "命令会自动创建目录并下载到 <code>" + esc(DATADIR[S.env]) + "</code>。";
+}
+
+/* ===== 事件 ===== */
+document.getElementById("mem").addEventListener("input", e => { S.mem = parseFloat(e.target.value); renderAll(); });
+document.getElementById("ver").addEventListener("change", e => {
+  S.ver = e.target.value;
+  if (!LOADERS[S.loader].supports(S.ver))
+    for (const k of Object.keys(LOADERS)) if (LOADERS[k].supports(S.ver)) { S.loader = k; break; }
+  renderAll();
+});
+document.getElementById("autoBtn").onclick = () => {
+  const r = recommend(); S.loader = r.loader; S.ver = r.ver;
+  if (!L.paper[S.ver] && r.loader === "paper") S.ver = "1.21.11";
+  toast("已应用推荐配置"); renderAll();
+};
+document.getElementById("resetBtn").onclick = () => {
+  S.env = /Windows/i.test(navigator.userAgent) ? "windows"
+        : /Macintosh/i.test(navigator.userAgent) ? "macos"
+        : /Android|iPhone|iPad/i.test(navigator.userAgent) ? "termux" : "linux";
+  S.mem = 2; S.loader = "paper"; S.ver = "1.21.11";
+  toast("已重置"); renderAll();
+};
+const bind = (btn, fn) => document.getElementById(btn).onclick = () => copy(fn());
+bind("s1copy", step1); bind("s1chkcopy", step1check);
+bind("s2copy", step2); bind("s2chkcopy", step2check);
+bind("s2raw", () => {
+  // 只去掉纯注释行与空行，保留换行结构
+  // （不能合并成一行：Fabric / Forge 的命令里有 "\" 续行，合并会破坏语法）
+  const nl = S.env === "windows" ? "\r\n" : "\n";
+  return step2().split(/\r?\n/)
+    .filter(l => l.trim() && !/^\s*#/.test(l))
+    .join(nl);
+});
+bind("s3copy", step3); bind("s4copy", step4);
+
+renderAll();
+</script>
+</body>
+</html>
