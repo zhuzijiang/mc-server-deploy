@@ -309,6 +309,42 @@ fetch(){
   return 1
 }
 
+# curl 的可用性是整个流程的前提：解析下载地址、下载服务端全靠它。
+# Termux 上 libcurl 与 openssl 版本错配时，curl 会在动态链接阶段直接失败，
+# 报 CANNOT LINK EXECUTABLE，此时连"下一步该干嘛"都提示不出来，所以单独预检。
+preflight_curl(){
+  have curl || die "系统里找不到 curl。请先安装：
+     Termux:  pkg install curl
+     Ubuntu:  apt-get install -y curl"
+
+  curl --version >/dev/null 2>&1 && return 0
+
+  printf '%s\n' "${C_R}✘ curl 无法运行（动态链接失败）${C_0}" >&2
+  if [ "$ENVK" = "termux" ]; then
+    cat >&2 <<'EOT'
+   典型报错：
+     CANNOT LINK EXECUTABLE "curl": cannot locate symbol
+     "SSL_set_quic_tls_early_data_enabled" referenced by libcurl.so
+
+   原因：Termux 的 libcurl 升级了，但 openssl 没跟上（多见于单独执行
+   pkg install curl，而 Termux 官方要求统一用 pkg upgrade）。
+
+   修复，按顺序试：
+     1) 直接重跑本脚本 —— 这常常只是升级过程中的瞬时状态，几秒后就自愈
+     2) 仍不行就统一升级：
+          pkg upgrade -y
+     3) 若 pkg 也报同样的链接错误（apt 同样依赖 libcurl），
+        用手机浏览器打开下面这个目录，下载文件名里带 aarch64 的 openssl 包，
+        放到手机的 Download 目录，然后执行：
+          dpkg -i /sdcard/Download/openssl_*_aarch64.deb
+        https://packages.termux.dev/apt/termux-main/pool/main/o/openssl/
+EOT
+  else
+    printf '%s\n' "   请重新安装 curl 后重试。" >&2
+  fi
+  exit 1
+}
+
 # 判断文件是不是真正的 jar：jar 本质是 zip，头两字节固定为 PK。
 # 比按体积猜可靠得多 —— Fabric 的启动器 jar 只有约 170 KB，
 # 而网络拦截页面虽可能有几十 KB，却不会以 PK 开头。
@@ -406,7 +442,14 @@ install_java(){
       fi
       info "安装 openjdk-${NEED_JAVA}（Termux 仓库）"
       pkg update -y >/dev/null 2>&1 || warn "pkg update 有警告，继续"
-      pkg install -y "openjdk-${NEED_JAVA}" curl || die "安装 Java 失败"
+      # 绝对不要在这里带上 curl！
+      # Termux 官方要求用 pkg upgrade 统一升级；单独 pkg install curl 会把 libcurl
+      # 升到新版而 openssl 还停在旧版，导致 curl 动态链接失败：
+      #   CANNOT LINK EXECUTABLE "curl": cannot locate symbol "SSL_set_quic_tls_early_data_enabled"
+      # 一旦 curl 挂了，整个脚本连下载地址都解析不了。
+      pkg install -y "openjdk-${NEED_JAVA}" || die "安装 Java 失败。
+     Termux 上常见原因是包索引与已装包不一致，先做一次统一升级再重试：
+       pkg upgrade -y"
       have termux-wake-lock && { termux-wake-lock 2>/dev/null && ok "已获取唤醒锁（防止息屏挂起）"; }
       ;;
     proot|linux)
@@ -610,6 +653,7 @@ do_install(){
   sub "安装目录   ${DIR}"
   sub "监听端口   ${PORT}   内存 ${MEM}G"
 
+  preflight_curl
   check_disk_space
   check_memory_sanity
   [ "$ENVK" = "termux" ] && hint "开服期间请勿清理 Termux 通知栏的常驻通知，否则系统可能回收进程"
