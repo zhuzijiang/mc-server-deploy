@@ -44,6 +44,9 @@ param(
     [ValidateSet('auto','always','never')]
     [string]$Mirror = 'never',   # Windows 桌面默认走官方源
 
+    [string]$Plugins = '',   # 逗号分隔的插件 slug，例如 essentialsx,luckperms
+    [string]$Mods = '',      # 逗号分隔的模组 slug，例如 lithium,ferrite-core
+
     [switch]$NoStart,
     [switch]$NoJava,
     [switch]$List,
@@ -115,6 +118,36 @@ if ($List) {
     return
 }
 
+# ------------------------- 插件与模组（数据来自 Modrinth）---------------------
+function Install-Modrinth {
+    param([string]$List, [string]$Kind, [string]$Target, [string[]]$Loaders)
+    if (-not $List) { return }
+    if (-not $Loaders -or $Loaders.Count -eq 0) { Write-Warn2 "$Loader 不支持$Kind，已跳过"; return }
+    New-Item -ItemType Directory -Force -Path $Target | Out-Null
+    $encL = [uri]::EscapeDataString('[' + (($Loaders | ForEach-Object { '"' + $_ + '"' }) -join ',') + ']')
+    $encV = [uri]::EscapeDataString('["' + $Version + '"]')
+    $ok = 0; $skip = 0
+    foreach ($raw in $List.Split(',')) {
+        $sl = $raw.Trim(); if (-not $sl) { continue }
+        $api = "https://api.modrinth.com/v2/project/$sl/version?loaders=$encL&game_versions=$encV"
+        $v = $null
+        try { $v = Invoke-RestMethod -Uri $api -TimeoutSec 60 -UseBasicParsing } catch { }
+        if (-not $v -or $v.Count -eq 0) { Write-Warn2 "$sl：没有适配 $Loader + MC $Version 的版本，已跳过"; $skip++; continue }
+        $ver = $v[0]
+        if ($ver.environment -eq 'client_only') { Write-Warn2 "$sl：仅客户端内容，装在服务端没用，已跳过"; $skip++; continue }
+        $f = $ver.files | Where-Object { $_.primary } | Select-Object -First 1
+        if (-not $f) { $f = $ver.files[0] }
+        if (-not $f) { Write-Warn2 "$sl：解析文件失败，已跳过"; $skip++; continue }
+        Write-Sub "下载 $sl -> $($f.filename)"
+        try {
+            Invoke-WebRequest -Uri $f.url -OutFile (Join-Path $Target $f.filename) -UseBasicParsing
+            Write-Ok "  $($f.filename)"
+            $ok++
+        } catch { Write-Warn2 "$sl 下载失败，已跳过"; $skip++ }
+    }
+    Write-Sub "结果       成功 $ok 个，跳过 $skip 个"
+}
+
 # ------------------------- 自动参数 ------------------------------------------
 $needJava = Get-JavaFor $Version
 
@@ -159,12 +192,13 @@ Write-Sub "目录    $Dir"
 Write-Sub "端口    $Port"
 Write-Hr
 Write-Sub "本次共 $TOTAL_STEPS 步："
-Write-Sub "  1 检查环境    2 准备 Java      3 解析下载地址    4 下载服务端"
-Write-Sub "  5 写入配置    6 生成启动脚本   7 启动服务器"
+Write-Sub "  1 准备 Java      2 解析下载地址    3 下载服务端     4 装插件模组"
+Write-Sub "  5 写入配置       6 生成启动脚本    7 启动服务器"
 Write-Hint "中途 Ctrl+C 可安全中断，不会留下坏文件"
 
-Write-Step "检查运行环境"
 Write-Sub "已有 Java：$(if ((Get-CurrentJava) -gt 0) { "Java $(Get-CurrentJava)" } else { "未安装" })"
+
+Write-Step "准备 Java $needJava"
 
 # ------------------------- 安装 Java -----------------------------------------
 if (-not $NoJava) {
@@ -208,7 +242,8 @@ if (-not $NoJava) {
     }
 } else { Write-Info "按参数跳过 Java 检查" }
 
-Write-Step "准备 Java $needJava"
+
+Write-Step "解析下载地址"
 
 # ------------------------- 解析下载地址 --------------------------------------
 Write-Info "解析 $Loader $Version 的下载地址"
@@ -276,8 +311,9 @@ if ($DryRun) {
     return
 }
 
-Write-Step "解析下载地址"
 Write-Sub "服务端     $srcName"
+
+Write-Step "下载服务端文件"
 
 # ------------------------- 下载与安装 ----------------------------------------
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
@@ -308,7 +344,26 @@ if ($isInstaller) {
     }
 }
 
-Write-Step "下载服务端文件"
+
+Write-Step "安装插件与模组"
+if (-not $Plugins -and -not $Mods) {
+    Write-Sub "未选择任何插件或模组"
+    Write-Hint "可用 -Plugins essentialsx,luckperms 或 -Mods lithium,jei 指定"
+} else {
+    switch ($Loader) {
+        'paper' {
+            if ($Mods) { Write-Warn2 "Paper 不能加载 Fabric / Forge 模组，-Mods 已忽略" }
+            Install-Modrinth -List $Plugins -Kind '插件' -Target (Join-Path $Dir 'plugins') -Loaders @('paper','spigot','bukkit')
+        }
+        'vanilla' { Write-Warn2 "原版服务端既不支持插件也不支持模组，已跳过" }
+        default {
+            if ($Plugins) { Write-Warn2 "Bukkit 插件只能在 Paper 上运行，-Plugins 已忽略" }
+            Install-Modrinth -List $Mods -Kind '模组' -Target (Join-Path $Dir 'mods') -Loaders @($Loader)
+        }
+    }
+}
+
+Write-Step "写入配置"
 
 # ------------------------- 写配置 --------------------------------------------
 Set-Content -Path eula.txt -Value 'eula=true' -Encoding ascii
@@ -336,8 +391,9 @@ if (Test-Path server.properties) {
     Write-Ok "已写入 server.properties"
 }
 
-Write-Step "写入配置"
 Write-Hint "Minecraft 服务端必须显式同意许可协议才能启动，这一步是自动完成的"
+
+Write-Step "生成启动脚本"
 
 # ------------------------- 启动脚本 ------------------------------------------
 # here-string 的闭合定界符单独占一行、不与管道同行，再用变量写出，避免解析歧义；
@@ -360,7 +416,6 @@ pause
 $bat | Set-Content -Path start.bat -Encoding ascii
 Write-Ok "已生成启动脚本 start.bat"
 
-Write-Step "生成启动脚本"
 Write-Hr
 Write-Ok "部署完成  目录: $Dir"
 Write-Hr
