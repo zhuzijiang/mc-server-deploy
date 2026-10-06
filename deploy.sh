@@ -16,6 +16,14 @@ set -uo pipefail
 
 REPO_RAW="https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main"
 
+# 数据文件的多条获取通道：某些网络会阻断 raw.githubusercontent.com，
+# 按顺序尝试，用第一个成功的。jsDelivr 有缓存（约 12 小时），ghproxy 系列是实时代理。
+DATA_MIRRORS="
+https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main
+https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main
+https://ghproxy.net/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main
+https://gh-proxy.com/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main"
+
 # ------------------------------- 输出样式 -----------------------------------
 if [ -t 1 ]; then
   C_R=$'\033[31m'; C_G=$'\033[32m'; C_Y=$'\033[33m'; C_B=$'\033[36m'
@@ -561,8 +569,16 @@ SH
 
 # ------------------------------- 组合列表 -----------------------------------
 list_combos(){
-  local f="${TMPDIR:-/tmp}/mc-data.$$.json"
-  if fetch "$REPO_RAW/data.json" "$f" 2>/dev/null; then
+  local f="${TMPDIR:-/tmp}/mc-data.$$.json" base
+  : > "$f"
+  # 依次尝试各通道，任一成功即停止
+  for base in $DATA_MIRRORS; do
+    if fetch "$base/data.json" "$f" 2>/dev/null && [ -s "$f" ]; then
+      info "数据来源: ${base%%/data.json*}" >&2
+      break
+    fi
+  done
+  if [ -s "$f" ]; then
     python3 - "$f" <<'PY' 2>/dev/null || cat "$f"
 import json,sys
 d=json.load(open(sys.argv[1]))

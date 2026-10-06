@@ -53,6 +53,28 @@ iwr -useb https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main/dep
 
 ---
 
+## 网络不通？换镜像通道
+
+`raw.githubusercontent.com` 在部分网络下会被阻断（表现为 `curl: (35) Connection reset` 或一直超时）。
+下面四条通道内容完全相同，**任选一条能连通的**即可，把命令里的域名换掉就行：
+
+| 通道 | 地址前缀 | 说明 |
+|---|---|---|
+| GitHub 官方 | `https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main` | 最实时，但国内常被阻断 |
+| jsDelivr CDN | `https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main` | 全球 CDN，国内通常可用；有约 12 小时缓存 |
+| ghproxy.net | `https://ghproxy.net/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main` | 实时代理，无缓存 |
+| gh-proxy.com | `https://gh-proxy.com/https://raw.githubusercontent.com/zhuzijiang/mc-server-deploy/main` | 实时代理，无缓存 |
+
+例如把官方通道换成 jsDelivr：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/zhuzijiang/mc-server-deploy@main/deploy.sh | bash -s -- --loader paper --version 1.21.11 --mem 2
+```
+
+脚本内部的 `--list` 也会自动按「官方 → jsDelivr → ghproxy → gh-proxy」的顺序重试，无需手动指定。
+
+---
+
 ## 参数
 
 | 参数 | 说明 | 默认 |
