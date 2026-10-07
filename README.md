@@ -8,6 +8,8 @@
 - 附带一个**离线可用的网页控制台** `index.html`，点点选选就能生成命令
 
 > 全部下载地址由官方接口实时解析，不写死任何可能过期的链接。
+>
+> **在线版网页控制台：<https://zhuzijiang.github.io/mc-server-deploy/>**（也可以下载 `index.html` 离线用）
 
 ---
 
@@ -324,7 +326,12 @@ Android 会回收后台进程。`termux-wake-lock`（脚本自动执行）之外
 
 ```bash
 python3 tools/gen_matrix.py    # 重新探测全部版本 × 服务端
+python3 tools/gen_catalog.py   # 重新采集插件与模组目录
 python3 tools/gen_readme.py    # 重新渲染 README 矩阵表
+
+# 仓库的「介绍信息」（描述 / 主题 / 主页）也从数据现算，避免介绍与内容脱节
+GITHUB_TOKEN=xxx python3 tools/set_repo_meta.py --check   # 先看要改成什么
+GITHUB_TOKEN=xxx python3 tools/set_repo_meta.py           # 实际写入
 ```
 
 数据来源：PaperMC Fill API v3 · Mojang 版本清单 · Fabric Meta · Forge promotions · NeoForge maven · BMCLAPI。
