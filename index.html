@@ -243,7 +243,7 @@ button.pri:hover::after{transform:translateX(110%)}
 <!-- ============ 一条命令 ============ -->
 <section id="onecmd" style="border-color:var(--accent)">
   <h2><span class="num">一条命令</span>复制粘贴，回车就开服</h2>
-  <p class="hint">这条命令会自动装 Java、下载服务端、写好配置、生成启动脚本并启动。参数跟着下面的配置台实时变化。</p>
+  <p class="hint">这条命令会自动装 Java、下载服务端、写好配置、生成启动脚本并启动。参数和<b>命令格式</b>都跟着下面的配置台实时变化 —— 在配置台里选 <b>Windows</b>，这里就变成 PowerShell 命令；选 Termux / Linux / macOS，就是终端命令。</p>
 
   <div class="btnrow" style="margin:0 0 10px">
     <select id="chan" style="flex:1">
@@ -253,6 +253,7 @@ button.pri:hover::after{transform:translateX(110%)}
     </select>
   </div>
 
+  <div class="lb" id="onecmdTitle" style="margin-bottom:4px"></div>
   <pre class="out" id="onecmdBox"></pre>
   <div class="btnrow">
     <button class="pri" id="onecmdCopy">复制这条命令</button>
@@ -265,9 +266,9 @@ button.pri:hover::after{transform:translateX(110%)}
   </div>
 
   <details style="margin-top:11px">
-    <summary>Windows 用户的命令</summary>
+    <summary id="onecmdOtherSummary">Windows 用户的命令</summary>
     <div class="body">
-      在 <b>PowerShell</b> 里粘贴运行（不是 CMD）：
+      <span id="onecmdOtherHint">在 <b>PowerShell</b> 里粘贴运行（不是 CMD）：</span>
       <pre class="out" id="onecmdWin" style="margin-top:8px"></pre>
       <div class="btnrow"><button id="onecmdWinCopy">复制 Windows 命令</button></div>
     </div>
@@ -1523,9 +1524,30 @@ function oneCmdWin(){
   return "& ([scriptblock]::Create((iwr -useb " + oneCmdBase() + "/deploy.ps1).Content)) `\n  " + a.join(" ");
 }
 
+// 当前环境是不是 Windows。主命令框按它决定给哪一版命令。
+function isWinEnv(){ return S.env === "windows"; }
+
 function renderOneCmd(){
-  document.getElementById("onecmdBox").innerHTML = colorize(oneCmd());
-  document.getElementById("onecmdWin").innerHTML = colorize(oneCmdWin());
+  const win = isWinEnv();
+  // 2026-10-10 修复：主命令框原来恒为 oneCmd()（curl|bash），
+  // 在配置台里选了 Windows 也照旧显示 Termux 命令，看起来像"选环境没用"。
+  // 现在主框跟着 S.env 走，另一版命令放到下面的折叠区里。
+  document.getElementById("onecmdBox").innerHTML = colorize(win ? oneCmdWin() : oneCmd());
+  document.getElementById("onecmdWin").innerHTML = colorize(win ? oneCmd() : oneCmdWin());
+
+  const title = document.getElementById("onecmdTitle");
+  if (title) title.textContent = win ? "PowerShell（Windows）" : "Termux / Linux / macOS 终端";
+  const copyBtn = document.getElementById("onecmdCopy");
+  if (copyBtn) copyBtn.textContent = win ? "复制这条命令（PowerShell）" : "复制这条命令";
+  const osum = document.getElementById("onecmdOtherSummary");
+  if (osum) osum.textContent = win ? "Termux / Linux / macOS 用户的命令" : "Windows 用户的命令";
+  const ohint = document.getElementById("onecmdOtherHint");
+  if (ohint) ohint.innerHTML = win
+    ? "在 Termux / Linux / macOS 的<b>终端</b>里粘贴运行："
+    : "在 <b>PowerShell</b> 里粘贴运行（不是 CMD）：";
+  const ocopy = document.getElementById("onecmdWinCopy");
+  if (ocopy) ocopy.textContent = win ? "复制终端命令" : "复制 Windows 命令";
+
   document.getElementById("onecmdSummary").innerHTML =
     esc(LOADERS[S.loader].n) + " " + esc(S.ver) + " · Java " + V(S.ver).java
     + " · 内存 " + S.mem + " GB · 通道 " + esc((CHANNELS[CHAN] || {}).label || "");
@@ -1595,8 +1617,9 @@ bind("s3copy", step3); bind("s4copy", step4);
 
 /* 一条命令：通道切换与复制 */
 document.getElementById("chan").addEventListener("change", e => { CHAN = e.target.value; renderOneCmd(); });
-document.getElementById("onecmdCopy").onclick = () => copy(oneCmd());
-document.getElementById("onecmdWinCopy").onclick = () => copy(oneCmdWin());
+// 复制按钮必须复制"屏幕上正显示的那一条"（2026-10-10 修复：原来恒复制 oneCmd()）
+document.getElementById("onecmdCopy").onclick = () => copy(isWinEnv() ? oneCmdWin() : oneCmd());
+document.getElementById("onecmdWinCopy").onclick = () => copy(isWinEnv() ? oneCmd() : oneCmdWin());
 
 /* 插件与模组：标签页、搜索、快捷按钮 */
 document.getElementById("tabPlugins").onclick = () => switchTab("plugins");
